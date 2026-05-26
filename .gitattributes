@@ -1,0 +1,28 @@
+# Tum dosyalarda LF satir sonu zorunlu (Mac/Windows tutarliligi)
+* text=auto eol=lf
+
+# Binary dosyalar
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+
+# Windows batch dosyalari CRLF kullanmali
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Lock dosyalari
+package-lock.json text eol=lf
+yarn.lock text eol=lf
+
+# Prisma
+*.prisma text eol=lf
+
+# Shell script'leri LF
+*.sh text eol=lf

@@ -1,0 +1,361 @@
+// =====================================================
+// TarimCRM Prisma Schema
+// =====================================================
+// Bu dosya tum tablo iskeletlerini icerir.
+// Her modul kendi modellerini yatay-prisma agent'i araciligiyla
+// genisletecek. Iliskileri bozmadan, sadece eksik alanlari ekleyelim.
+//
+// Kurallar (CLAUDE.md'den):
+// - Model isimleri PascalCase, Turkce (HasatGirisi, IsciEkibi)
+// - Field isimleri camelCase, Turkce (tartimMiktariKg)
+// - Tablo isimleri @@map ile snake_case Turkce (hasat_girisleri)
+// - Column isimleri @map ile snake_case (tartim_miktari_kg)
+// - Enum degerleri snake_case ASCII (ton_isi, odeme_bekleniyor)
+// =====================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================
+// MODUL 1 - HASAT YONETIMI
+// =====================================================
+
+model HasatDonemi {
+  id              String    @id @default(uuid())
+  donemAdi        String    @map("donem_adi")
+  yil             Int
+  baslangicTarihi DateTime  @map("baslangic_tarihi") @db.Date
+  bitisTarihi     DateTime? @map("bitis_tarihi") @db.Date
+  durum           DonemDurumu @default(aktif)
+  olusturmaTarihi DateTime  @default(now()) @map("olusturma_tarihi")
+
+  surgunler       Surgun[]
+
+  @@map("hasat_donemleri")
+}
+
+model Surgun {
+  id              String    @id @default(uuid())
+  hasatDonemiId   String    @map("hasat_donemi_id")
+  surgunNo        Int       @map("surgun_no")
+  surgunAdi       String    @map("surgun_adi")
+  baslangicTarihi DateTime  @map("baslangic_tarihi") @db.Date
+  bitisTarihi     DateTime? @map("bitis_tarihi") @db.Date
+  durum           DonemDurumu @default(aktif)
+  toplamHasatKg   Decimal   @default(0) @map("toplam_hasat_kg") @db.Decimal(12, 2)
+  toplamTutar     Decimal   @default(0) @map("toplam_tutar") @db.Decimal(14, 2)
+
+  hasatDonemi     HasatDonemi @relation(fields: [hasatDonemiId], references: [id])
+  hasatGirisleri  HasatGirisi[]
+  kontenjanlar    Kontenjan[]
+  gelirKayitlari  GelirKaydi[]
+
+  @@map("surgunler")
+}
+
+model HasatGirisi {
+  id                  String   @id @default(uuid())
+  surgunId            String   @map("surgun_id")
+  tarih               DateTime @db.Date
+  tarlaId             String   @map("tarla_id")
+  tartimMiktariKg     Decimal  @map("tartim_miktari_kg") @db.Decimal(10, 2)
+  satisMiktariKg      Decimal  @map("satis_miktari_kg") @db.Decimal(10, 2)
+  toplanmaTuru        ToplanmaTuru @map("toplanma_turu")
+  isciEkipId          String?  @map("isci_ekip_id")
+  odemeTuru           OdemeTuru? @map("odeme_turu")
+  tonFiyati           Decimal? @map("ton_fiyati") @db.Decimal(10, 2)
+  yevmiyeFiyati       Decimal? @map("yevmiye_fiyati") @db.Decimal(10, 2)
+  iscilikToplamTutar  Decimal? @map("iscilik_toplam_tutar") @db.Decimal(12, 2)
+  musteriId           String   @map("musteri_id")
+  notlar              String?
+  olusturmaTarihi     DateTime @default(now()) @map("olusturma_tarihi")
+
+  surgun              Surgun    @relation(fields: [surgunId], references: [id])
+  tarla               Tarla     @relation(fields: [tarlaId], references: [id])
+  isciEkip            IsciEkibi? @relation(fields: [isciEkipId], references: [id])
+  musteri             Musteri   @relation(fields: [musteriId], references: [id])
+
+  @@map("hasat_girisleri")
+}
+
+// =====================================================
+// MODUL 2 - ISCILIK VE EKIP YONETIMI
+// =====================================================
+
+model Isci {
+  id              String    @id @default(uuid())
+  adSoyad         String    @map("ad_soyad")
+  tcNo            String?   @map("tc_no")
+  telefon         String
+  adres           String?
+  bankaIban       String?   @map("banka_iban")
+  acilIletisim    String?   @map("acil_iletisim")
+  notlar          String?
+  durum           AktifPasif @default(aktif)
+  kayitTarihi     DateTime  @default(now()) @map("kayit_tarihi")
+
+  ekipUyelikleri  EkipIsciIliskisi[]
+
+  @@map("isciler")
+}
+
+model IsciEkibi {
+  id              String    @id @default(uuid())
+  ekipAdi         String    @map("ekip_adi")
+  ekipBasiId      String?   @map("ekip_basi_id")
+  durum           AktifPasif @default(aktif)
+
+  uyeler          EkipIsciIliskisi[]
+  hasatGirisleri  HasatGirisi[]
+
+  @@map("isci_ekipleri")
+}
+
+model EkipIsciIliskisi {
+  ekipId          String    @map("ekip_id")
+  isciId          String    @map("isci_id")
+  katilmaTarihi   DateTime  @default(now()) @map("katilma_tarihi") @db.Date
+  ayrilmaTarihi   DateTime? @map("ayrilma_tarihi") @db.Date
+
+  ekip            IsciEkibi @relation(fields: [ekipId], references: [id])
+  isci            Isci      @relation(fields: [isciId], references: [id])
+
+  @@id([ekipId, isciId])
+  @@map("ekip_isci_iliskisi")
+}
+
+// =====================================================
+// MODUL 3 - TARLA YONETIMI
+// =====================================================
+
+model Tarla {
+  id              String    @id @default(uuid())
+  tarlaAdi        String    @map("tarla_adi")
+  konumIl         String    @map("konum_il")
+  konumIlce       String    @map("konum_ilce")
+  konumKoy        String    @map("konum_koy")
+  adaNo           String?   @map("ada_no")
+  parselNo        String?   @map("parsel_no")
+  donum           Decimal   @db.Decimal(10, 2)
+  metrekare       Decimal?  @db.Decimal(12, 2)
+  rakim           Int?
+  cayCesidi       String?   @map("cay_cesidi")
+  dikimYili       Int?      @map("dikim_yili")
+  topraktipi      String?   @map("toprak_tipi")
+  sulamaDurumu    SulamaDurumu @map("sulama_durumu")
+  ciftciId        String    @map("ciftci_id")
+  koordinatLat    Decimal?  @map("koordinat_lat") @db.Decimal(10, 7)
+  koordinatLng    Decimal?  @map("koordinat_lng") @db.Decimal(10, 7)
+  durum           AktifPasif @default(aktif)
+  notlar          String?
+
+  ciftci          Ciftci    @relation(fields: [ciftciId], references: [id])
+  hasatGirisleri  HasatGirisi[]
+
+  @@map("tarlalar")
+}
+
+// =====================================================
+// MODUL 4 - CIFTCI YONETIMI
+// =====================================================
+
+model Ciftci {
+  id              String    @id @default(uuid())
+  adSoyad         String    @map("ad_soyad")
+  tcNo            String?   @map("tc_no")
+  telefon         String
+  telefon2        String?   @map("telefon_2")
+  adres           String?
+  il              String?
+  ilce            String?
+  koy             String?
+  cayKurNo        String?   @map("cay_kur_no")
+  bankaIban       String?   @map("banka_iban")
+  vergiNo         String?   @map("vergi_no")
+  durum           AktifPasif @default(aktif)
+  notlar          String?
+  kayitTarihi     DateTime  @default(now()) @map("kayit_tarihi")
+
+  tarlalar        Tarla[]
+
+  @@map("ciftciler")
+}
+
+// =====================================================
+// MODUL 5 - MUSTERI YONETIMI
+// =====================================================
+
+model Musteri {
+  id                String    @id @default(uuid())
+  musteriAdi        String    @map("musteri_adi")
+  musteriTipi       MusteriTipi @map("musteri_tipi")
+  kurumsalMi        Boolean   @default(false) @map("kurumsal_mi")
+  devletMi          Boolean   @default(false) @map("devlet_mi")
+  kurumAdi          String?   @map("kurum_adi")
+  yetkiliKisi       String?   @map("yetkili_kisi")
+  telefon           String
+  email             String?
+  adres             String?
+  vergiDairesi      String?   @map("vergi_dairesi")
+  vergiNo           String?   @map("vergi_no")
+  odemeVadeGun      Int       @default(0) @map("odeme_vade_gun")
+  kontenjanVarMi    Boolean   @default(false) @map("kontenjan_var_mi")
+  durum             AktifPasif @default(aktif)
+  notlar            String?
+
+  hasatGirisleri    HasatGirisi[]
+  kontenjanlar      Kontenjan[]
+
+  @@map("musteriler")
+}
+
+// =====================================================
+// MODUL 6 - KONTENJAN VE SATIS
+// =====================================================
+
+model Kontenjan {
+  id                  String    @id @default(uuid())
+  surgunId            String    @map("surgun_id")
+  musteriId           String    @map("musteri_id")
+  baslangicTarihi     DateTime  @map("baslangic_tarihi") @db.Date
+  bitisTarihi         DateTime? @map("bitis_tarihi") @db.Date
+  gunlukKontenjanKg   Decimal   @map("gunluk_kontenjan_kg") @db.Decimal(10, 2)
+  durum               DonemDurumu @default(aktif)
+
+  surgun              Surgun    @relation(fields: [surgunId], references: [id])
+  musteri             Musteri   @relation(fields: [musteriId], references: [id])
+  gunlukTakip         KontenjanGunlukTakip[]
+
+  @@map("kontenjanlar")
+}
+
+model KontenjanGunlukTakip {
+  id                  String    @id @default(uuid())
+  kontenjanId         String    @map("kontenjan_id")
+  tarih               DateTime  @db.Date
+  tartimKg            Decimal   @map("tartim_kg") @db.Decimal(10, 2)
+  gunlukKontenjanKg   Decimal   @map("gunluk_kontenjan_kg") @db.Decimal(10, 2)
+  oncekiBakiyeKg      Decimal   @map("onceki_bakiye_kg") @db.Decimal(10, 2)
+  hesaplananSatisKg   Decimal   @map("hesaplanan_satis_kg") @db.Decimal(10, 2)
+  kalanBakiyeKg       Decimal   @map("kalan_bakiye_kg") @db.Decimal(10, 2)
+
+  kontenjan           Kontenjan @relation(fields: [kontenjanId], references: [id])
+
+  @@map("kontenjan_gunluk_takip")
+}
+
+// =====================================================
+// MODUL 7 - FINANS VE ODEME
+// =====================================================
+
+model GelirKaydi {
+  id                String    @id @default(uuid())
+  surgunId          String    @map("surgun_id")
+  musteriId         String    @map("musteri_id")
+  toplamKg          Decimal   @map("toplam_kg") @db.Decimal(12, 2)
+  birimFiyat        Decimal   @map("birim_fiyat") @db.Decimal(10, 2)
+  toplamTutar       Decimal   @map("toplam_tutar") @db.Decimal(14, 2)
+  odemeDurumu       OdemeDurumu @default(odeme_bekleniyor) @map("odeme_durumu")
+  odenenTutar       Decimal   @default(0) @map("odenen_tutar") @db.Decimal(14, 2)
+  kalanTutar        Decimal   @map("kalan_tutar") @db.Decimal(14, 2)
+  vadeTarihi        DateTime? @map("vade_tarihi") @db.Date
+  olusturmaTarihi   DateTime  @default(now()) @map("olusturma_tarihi")
+
+  surgun            Surgun    @relation(fields: [surgunId], references: [id])
+
+  @@map("gelir_kayitlari")
+}
+
+model OdemeKaydi {
+  id              String    @id @default(uuid())
+  kategori        OdemeKategorisi
+  aciklama        String
+  ilgiliEkipId    String?   @map("ilgili_ekip_id")
+  ilgiliIsciId    String?   @map("ilgili_isci_id")
+  hasatGirisId    String?   @map("hasat_giris_id")
+  tutar           Decimal   @db.Decimal(14, 2)
+  odemeDurumu     OdemeDurumu @default(odeme_bekleniyor) @map("odeme_durumu")
+  odenenTutar     Decimal   @default(0) @map("odenen_tutar") @db.Decimal(14, 2)
+  odemeTarihi     DateTime? @map("odeme_tarihi") @db.Date
+  odemeYontemi    OdemeYontemi? @map("odeme_yontemi")
+  olusturmaTarihi DateTime  @default(now()) @map("olusturma_tarihi")
+
+  @@map("odeme_kayitlari")
+}
+
+// =====================================================
+// ENUM TANIMLARI
+// =====================================================
+
+enum DonemDurumu {
+  aktif
+  kapali
+}
+
+enum AktifPasif {
+  aktif
+  pasif
+}
+
+enum ToplanmaTuru {
+  tarla_sahibi
+  isci
+}
+
+enum OdemeTuru {
+  yevmiye
+  ton_isi
+}
+
+enum OdemeDurumu {
+  odeme_bekleniyor
+  kismi_odendi
+  odendi
+}
+
+enum OdemeYontemi {
+  nakit
+  banka
+  eft
+}
+
+enum OdemeKategorisi {
+  iscilik
+  malzeme
+  yakit
+  gubre
+  diger
+}
+
+enum SulamaDurumu {
+  dogal
+  sulamali
+  karma
+}
+
+enum MusteriTipi {
+  kurumsal
+  pesincu
+}
+
+// =====================================================
+// NOT: Modul 8-21 modelleri ilgili yatay-prisma agent'i
+// tarafindan, ilgili modul ile birlikte eklenecek.
+//
+// Eklenecekler:
+// - Malzeme, StokHareketi, Ekipman (Modul 8)
+// - HavaVerisi (Modul 11)
+// - Bildirim (Modul 12)
+// - Kullanici (Modul 13)
+// - AktiviteLogu (Modul 14)
+// - Fotograf (Modul 16)
+// - CayKalite (Modul 19)
+// - QrKod (Modul 20)
+// - OfflineSyncKuyrugu (Modul 21)
+// =====================================================

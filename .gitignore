@@ -1,0 +1,57 @@
+# Bagimliliklar
+node_modules/
+.pnp
+.pnp.js
+
+# Build ciktilari
+.next/
+out/
+build/
+dist/
+
+# Ortam degiskenleri (GIZLI - Git'e gitmez)
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# IDE ve editorler
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# Isletim sistemi
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Capacitor (platforma ozel build'ler)
+ios/App/Pods/
+ios/App/build/
+ios/DerivedData/
+android/.gradle/
+android/app/build/
+android/build/
+android/captures/
+android/local.properties
+
+# Debug loglari
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Prisma
+prisma/migrations/migration_lock.toml
+
+# Test
+coverage/
+playwright-report/
+test-results/
+
+# Diger
+*.tsbuildinfo
+next-env.d.ts
