@@ -34,15 +34,19 @@ export async function middleware(istek: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Anonim kullanıcıları ve e-postasız oturumları reddet
+  // Supabase "Anonymous Sign-in" açıksa is_anonymous=true gelir — bunlar geçersiz sayılır
+  const gercekKullanici = user && !user.is_anonymous && !!user.email ? user : null;
+
   const yol = istek.nextUrl.pathname;
 
   // Login sayfasına giden oturum açmış kullanıcıyı ana sayfaya yönlendir
-  if (yol === '/login' && user) {
-    return NextResponse.redirect(new URL('/ciftciler', istek.url));
+  if (yol === '/login' && gercekKullanici) {
+    return NextResponse.redirect(new URL('/dashboard', istek.url));
   }
 
   // Login dışındaki korumalı sayfalara oturumsuz erişimi engelle
-  if (yol !== '/login' && !user) {
+  if (yol !== '/login' && !gercekKullanici) {
     return NextResponse.redirect(new URL('/login', istek.url));
   }
 
