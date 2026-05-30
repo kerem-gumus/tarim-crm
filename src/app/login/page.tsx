@@ -52,6 +52,10 @@ export default function GirisYapSayfasi() {
       return;
     }
 
+    // Tarayıcı oturum bayrağını kur — tarayıcı kapanınca silinir
+    sessionStorage.setItem('tarimcrm_tarayici_aktif', '1');
+    localStorage.setItem('tarimcrm_son_aktivite', Date.now().toString());
+
     yonlendirici.push('/dashboard');
   }
 
