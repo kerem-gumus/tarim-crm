@@ -55,3 +55,12 @@ test-results/
 # Diger
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code agent worktree'leri ve oturum verileri
+.claude/worktrees/
+.claude/projects/
+
+# Yuklenen dosyalar (production'da kendi storage'ında olacak)
+public/uploads/dekontlar/
+public/uploads/faturalar/
+public/uploads/fotograflar/
