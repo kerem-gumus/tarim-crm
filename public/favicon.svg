@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a6b1a"/>
+      <stop offset="100%" stop-color="#2da02d"/>
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.97"/>
+      <stop offset="45%" stop-color="#d4f5d4" stop-opacity="0.93"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.87"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="1.28" stdDeviation="1.6" flood-color="rgba(0,0,0,0.25)"/>
+    </filter>
+  </defs>
+
+  <!-- Arka plan -->
+  <rect width="64" height="64" rx="14.08" ry="14.08" fill="url(#bgGrad)"/>
+
+  <!-- Yaprak (döndürülmüş, merkez) -->
+  <g transform="translate(32,32) rotate(-25)" filter="url(#shadow)">
+    <!-- Ana yaprak şekli -->
+    <path d="M0,-23.04 C16.5888,-12.672 16.5888,12.672 0,23.04 C-16.5888,12.672 -16.5888,-12.672 0,-23.04 Z" fill="url(#leafGrad)"/>
+    <!-- Orta damar -->
+    <line x1="0" y1="-19.584" x2="0" y2="19.584" stroke="#2d7a2d" stroke-width="1.408" stroke-opacity="0.45"/>
+    <!-- Yan damarlar -->
+    <line x1="0" y1="-8.064" x2="11.9808" y2="-12.672" stroke="#2d7a2d" stroke-width="0.832" stroke-opacity="0.3"/>
+    <line x1="0" y1="-8.064" x2="-11.9808" y2="-12.672" stroke="#2d7a2d" stroke-width="0.832" stroke-opacity="0.3"/>
+    <line x1="0" y1="1.152" x2="13.363199999999999" y2="-3.456" stroke="#2d7a2d" stroke-width="0.832" stroke-opacity="0.3"/>
+    <line x1="0" y1="1.152" x2="-13.363199999999999" y2="-3.456" stroke="#2d7a2d" stroke-width="0.832" stroke-opacity="0.3"/>
+    <line x1="0" y1="9.6768" x2="11.52" y2="5.0687999999999995" stroke="#2d7a2d" stroke-width="0.832" stroke-opacity="0.3"/>
+    <line x1="0" y1="9.6768" x2="-11.52" y2="5.0687999999999995" stroke="#2d7a2d" stroke-width="0.832" stroke-opacity="0.3"/>
+  </g>
+
+  
+</svg>

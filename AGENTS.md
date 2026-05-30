@@ -56,7 +56,7 @@ npm run doctor    # Tam tani
 
 ## Yapma Listesi (Tum Tool'lar Icin)
 
-- Ana TarimCRM_Proje_Dokumani.md'yi OKUMA (2050 satir). Onun yerine ilgili
+- Ana TarimCRM.md'yi OKUMA (2050 satir). Onun yerine ilgili
   `docs/moduller/XX-spec.md` dosyasini oku.
 - Birden fazla modul ayni anda degistirme. Once orchestrator/dagitici sirasinda gelir.
 - Naming convention'larini kirma. ASCII Turkce zorunlu.

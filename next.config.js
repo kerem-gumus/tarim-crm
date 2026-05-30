@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone', // Hostinger Node.js icin
+  output: process.env.BUILD_TARGET === 'mobile' ? 'export' : 'standalone', // mobile: Capacitor export, default: Hostinger standalone
   reactStrictMode: true,
   images: {
     unoptimized: false,

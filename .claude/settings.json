@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const fs=require('fs'),path=require('path'),cwd=process.cwd();let gemini='';try{gemini=fs.readFileSync(path.join(cwd,'GEMINI.md'),'utf8');}catch(e){}let skills=[];try{skills=fs.readdirSync(path.join(cwd,'.agents/skills'));}catch(e){}let workflows=[];try{workflows=fs.readdirSync(path.join(cwd,'.agents/workflows')).filter(f=>f.endsWith('.md'));}catch(e){}const ctx=['=== GEMINI.md (baglam dosyasi) ===',gemini,'','=== SKILL LISTESI (' +skills.length+ ' skill) ===',skills.join(', '),'','=== KAYITLI WORKFLOW KOMUTLARI ===',workflows.map(f=>'/'+f.replace('.md','')).join(', ')].join('\\n');process.stdout.write(JSON.stringify({hookSpecificOutput:{hookEventName:'SessionStart',additionalContext:ctx}})+'\\n');\"",
+            "statusMessage": "GEMINI.md ve skill'ler yukleniyor...",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -18,8 +18,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // =====================================================
@@ -27,34 +28,153 @@ datasource db {
 // =====================================================
 
 model HasatDonemi {
-  id              String    @id @default(uuid())
-  donemAdi        String    @map("donem_adi")
-  yil             Int
-  baslangicTarihi DateTime  @map("baslangic_tarihi") @db.Date
-  bitisTarihi     DateTime? @map("bitis_tarihi") @db.Date
-  durum           DonemDurumu @default(aktif)
-  olusturmaTarihi DateTime  @default(now()) @map("olusturma_tarihi")
+  id               String    @id @default(uuid())
+  donemAdi         String    @map("donem_adi")
+  yil              Int
+  baslangicTarihi  DateTime  @map("baslangic_tarihi") @db.Date
+  bitisTarihi      DateTime? @map("bitis_tarihi") @db.Date
+  durum            DonemDurumu @default(aktif)
+  brutFiyat        Decimal?  @map("brut_fiyat") @db.Decimal(10, 4)         // Yaş çay brüt kg fiyatı
+  netFiyat         Decimal?  @map("net_fiyat") @db.Decimal(10, 4)          // Yaş çay net kg fiyatı
+  desteklemeMiktari     Decimal?    @map("destekleme_miktari") @db.Decimal(10, 4)       // Devlet destekleme birim fiyatı (₺/kg)
+  toplamHasatKg         Decimal?    @map("toplam_hasat_kg") @db.Decimal(14, 2)          // Dönem kapanışında hesaplanan toplam hasat
+  desteklemeAlacakTutar Decimal?    @map("destekleme_alacak_tutar") @db.Decimal(14, 2)  // toplamHasatKg × desteklemeMiktari
+  desteklemeOdemeDurumu OdemeDurumu? @map("destekleme_odeme_durumu")                    // Devlet ödeme durumu
+  desteklemeOdenenTutar Decimal     @default(0) @map("destekleme_odenen_tutar") @db.Decimal(14, 2)
+  desteklemeKalanTutar  Decimal?    @map("destekleme_kalan_tutar") @db.Decimal(14, 2)
+  olusturmaTarihi  DateTime  @default(now()) @map("olusturma_tarihi")
+  olusturanId      String?   @map("olusturan_id")
+  olusturanAdi     String?   @map("olusturan_adi")
+  guncelleyenId    String?   @map("guncelleyen_id")
+  guncelleyenAdi   String?   @map("guncelleyen_adi")
+  guncellemeTarihi DateTime? @map("guncelleme_tarihi")
+  aktif            Boolean   @default(true)
 
-  surgunler       Surgun[]
+  surgunler           Surgun[]
+  donemCiftciler      HasatDonemCiftci[]
+  budamaBilgileri     BudamaBilgisi[]
+  kesintiler          HasatDonemKesinti[]
+  desteklemeOdemeler  DesteklemeOdeme[]
 
   @@map("hasat_donemleri")
 }
 
-model Surgun {
+model HasatDonemKesinti {
+  id            String    @id @default(uuid())
+  hasatDonemiId String    @map("hasat_donemi_id")
+  kesintiAdi    String    @map("kesinti_adi")       // örn: "Çay-Kur Kesintisi", "Kooperatif Aidatı"
+  yuzde         Decimal   @db.Decimal(6, 4)         // örn: 2.5000 → %2.5
+  olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi")
+  olusturanId   String?   @map("olusturan_id")
+  olusturanAdi  String?   @map("olusturan_adi")
+  aktif         Boolean   @default(true)
+
+  hasatDonemi   HasatDonemi @relation(fields: [hasatDonemiId], references: [id])
+
+  @@map("hasat_donem_kesintiler")
+}
+
+model HasatDonemCiftci {
   id              String    @id @default(uuid())
   hasatDonemiId   String    @map("hasat_donemi_id")
-  surgunNo        Int       @map("surgun_no")
-  surgunAdi       String    @map("surgun_adi")
-  baslangicTarihi DateTime  @map("baslangic_tarihi") @db.Date
-  bitisTarihi     DateTime? @map("bitis_tarihi") @db.Date
-  durum           DonemDurumu @default(aktif)
-  toplamHasatKg   Decimal   @default(0) @map("toplam_hasat_kg") @db.Decimal(12, 2)
-  toplamTutar     Decimal   @default(0) @map("toplam_tutar") @db.Decimal(14, 2)
+  ciftciId        String    @map("ciftci_id")
+  toplamDonum     Decimal?  @map("toplam_donum") @db.Decimal(10, 2)  // Ciftcinin o donemki toplam donumu (tarlalardan)
+  olusturmaTarihi DateTime  @default(now()) @map("olusturma_tarihi")
+  olusturanId     String?   @map("olusturan_id")
+  olusturanAdi    String?   @map("olusturan_adi")
+  aktif           Boolean   @default(true)
 
   hasatDonemi     HasatDonemi @relation(fields: [hasatDonemiId], references: [id])
-  hasatGirisleri  HasatGirisi[]
-  kontenjanlar    Kontenjan[]
-  gelirKayitlari  GelirKaydi[]
+  ciftci          Ciftci      @relation(fields: [ciftciId], references: [id])
+  budamaBilgisi   BudamaBilgisi?
+
+  @@unique([hasatDonemiId, ciftciId])
+  @@map("hasat_donem_ciftciler")
+}
+
+model BudamaBilgisi {
+  id                  String      @id @default(uuid())
+  hasatDonemiId       String      @map("hasat_donemi_id")
+  donemCiftciId       String      @unique @map("donem_ciftci_id")
+  ciftciId            String      @map("ciftci_id")
+  toplamDonum         Decimal     @map("toplam_donum") @db.Decimal(10, 2)     // Ciftcinin toplam donumu
+  budananDonum        Decimal     @map("budanan_donum") @db.Decimal(10, 4)   // Devlet kurali ile hesaplanan budana dönüm
+  budananM2           Decimal     @map("budanan_m2") @db.Decimal(12, 2)      // budananDonum x 1000 (metrekare)
+  brutFiyat           Decimal     @map("brut_fiyat") @db.Decimal(10, 4)      // O yilin brut kg fiyati
+  hesaplananTutar     Decimal     @map("hesaplanan_tutar") @db.Decimal(14, 2) // budananM2 x brutFiyat
+  odemeDurumu         OdemeDurumu @default(odeme_bekleniyor) @map("odeme_durumu")
+  odenenTutar         Decimal     @default(0) @map("odenen_tutar") @db.Decimal(14, 2)
+  kalanTutar          Decimal     @map("kalan_tutar") @db.Decimal(14, 2)
+  notlar              String?
+  olusturmaTarihi     DateTime    @default(now()) @map("olusturma_tarihi")
+  olusturanId         String?     @map("olusturan_id")
+  olusturanAdi        String?     @map("olusturan_adi")
+  guncelleyenId       String?     @map("guncelleyen_id")
+  guncelleyenAdi      String?     @map("guncelleyen_adi")
+  guncellemeTarihi    DateTime?   @map("guncelleme_tarihi")
+  aktif               Boolean     @default(true)
+
+  hasatDonemi   HasatDonemi      @relation(fields: [hasatDonemiId], references: [id])
+  donemCiftci   HasatDonemCiftci @relation(fields: [donemCiftciId], references: [id])
+  ciftci        Ciftci           @relation(fields: [ciftciId], references: [id])
+  odemeler      BudamaOdeme[]
+
+  @@map("budama_bilgileri")
+}
+
+model DesteklemeOdeme {
+  id              String    @id @default(uuid())
+  hasatDonemiId   String    @map("hasat_donemi_id")
+  tutar           Decimal   @db.Decimal(14, 2)
+  tarih           DateTime  @db.Date
+  aciklama        String?
+  olusturmaTarihi DateTime  @default(now()) @map("olusturma_tarihi")
+  olusturanId     String?   @map("olusturan_id")
+  olusturanAdi    String?   @map("olusturan_adi")
+  aktif           Boolean   @default(true)
+
+  hasatDonemi     HasatDonemi @relation(fields: [hasatDonemiId], references: [id])
+
+  @@map("destekleme_odemeler")
+}
+
+model BudamaOdeme {
+  id              String    @id @default(uuid())
+  budamaBilgisiId String    @map("budama_bilgisi_id")
+  tutar           Decimal   @db.Decimal(14, 2)
+  tarih           DateTime  @db.Date
+  aciklama        String?
+  olusturmaTarihi DateTime  @default(now()) @map("olusturma_tarihi")
+  olusturanId     String?   @map("olusturan_id")
+  olusturanAdi    String?   @map("olusturan_adi")
+  aktif           Boolean   @default(true)
+
+  budamaBilgisi   BudamaBilgisi @relation(fields: [budamaBilgisiId], references: [id])
+
+  @@map("budama_odemeler")
+}
+
+model Surgun {
+  id               String    @id @default(uuid())
+  hasatDonemiId    String    @map("hasat_donemi_id")
+  surgunNo         Int       @map("surgun_no")
+  surgunAdi        String    @map("surgun_adi")
+  baslangicTarihi  DateTime  @map("baslangic_tarihi") @db.Date
+  bitisTarihi      DateTime? @map("bitis_tarihi") @db.Date
+  durum            DonemDurumu @default(aktif)
+  toplamHasatKg    Decimal   @default(0) @map("toplam_hasat_kg") @db.Decimal(12, 2)
+  toplamTutar      Decimal   @default(0) @map("toplam_tutar") @db.Decimal(14, 2)
+  olusturanId      String?   @map("olusturan_id")
+  olusturanAdi     String?   @map("olusturan_adi")
+  guncelleyenId    String?   @map("guncelleyen_id")
+  guncelleyenAdi   String?   @map("guncelleyen_adi")
+  guncellemeTarihi DateTime? @map("guncelleme_tarihi")
+  aktif            Boolean   @default(true)
+
+  hasatDonemi      HasatDonemi @relation(fields: [hasatDonemiId], references: [id])
+  hasatGirisleri   HasatGirisi[]
+  kontenjanlar     Kontenjan[]
+  gelirKayitlari   GelirKaydi[]
 
   @@map("surgunler")
 }
@@ -63,7 +183,7 @@ model HasatGirisi {
   id                  String   @id @default(uuid())
   surgunId            String   @map("surgun_id")
   tarih               DateTime @db.Date
-  tarlaId             String   @map("tarla_id")
+  tarlaId             String?  @map("tarla_id")          // Kontenjan modunda opsiyonel
   tartimMiktariKg     Decimal  @map("tartim_miktari_kg") @db.Decimal(10, 2)
   satisMiktariKg      Decimal  @map("satis_miktari_kg") @db.Decimal(10, 2)
   toplanmaTuru        ToplanmaTuru @map("toplanma_turu")
@@ -73,13 +193,29 @@ model HasatGirisi {
   yevmiyeFiyati       Decimal? @map("yevmiye_fiyati") @db.Decimal(10, 2)
   iscilikToplamTutar  Decimal? @map("iscilik_toplam_tutar") @db.Decimal(12, 2)
   musteriId           String   @map("musteri_id")
+  // Satış fiyatı (sadece özel/kurumsal müşterilerde doldurulur)
+  fiyatTuru           FiyatTuru? @map("fiyat_turu")                              // devlet_fiyati veya ozel_fiyat
+  satisKgFiyati       Decimal?  @map("satis_kg_fiyati") @db.Decimal(10, 4)       // ₺/kg
+  satisToplam         Decimal?  @map("satis_toplam") @db.Decimal(14, 2)          // satisMiktariKg × satisKgFiyati
+  odemeSekli          OdemeSekli? @map("odeme_sekli")                            // pesin veya vadeli
+  odemeTarihi         DateTime? @map("odeme_tarihi") @db.Date                    // peşin: ödeme günü, vadeli: vade tarihi
+  kontenjanId         String?  @map("kontenjan_id")          // Kontenjan modunda dolu
   notlar              String?
   olusturmaTarihi     DateTime @default(now()) @map("olusturma_tarihi")
+  olusturanId         String?  @map("olusturan_id")
+  olusturanAdi        String?  @map("olusturan_adi")
+  guncelleyenId       String?  @map("guncelleyen_id")
+  guncelleyenAdi      String?  @map("guncelleyen_adi")
+  guncellemeTarihi    DateTime? @map("guncelleme_tarihi")
+  aktif               Boolean  @default(true)
 
   surgun              Surgun    @relation(fields: [surgunId], references: [id])
-  tarla               Tarla     @relation(fields: [tarlaId], references: [id])
+  tarla               Tarla?    @relation(fields: [tarlaId], references: [id])
   isciEkip            IsciEkibi? @relation(fields: [isciEkipId], references: [id])
   musteri             Musteri   @relation(fields: [musteriId], references: [id])
+  kontenjan           Kontenjan? @relation(fields: [kontenjanId], references: [id])
+  cayKalite           CayKalite[]
+  kontenjanTakip      KontenjanGunlukTakip[]
 
   @@map("hasat_girisleri")
 }
@@ -89,30 +225,42 @@ model HasatGirisi {
 // =====================================================
 
 model Isci {
-  id              String    @id @default(uuid())
-  adSoyad         String    @map("ad_soyad")
-  tcNo            String?   @map("tc_no")
-  telefon         String
-  adres           String?
-  bankaIban       String?   @map("banka_iban")
-  acilIletisim    String?   @map("acil_iletisim")
-  notlar          String?
-  durum           AktifPasif @default(aktif)
-  kayitTarihi     DateTime  @default(now()) @map("kayit_tarihi")
+  id               String    @id @default(uuid())
+  adSoyad          String    @map("ad_soyad")
+  tcNo             String?   @map("tc_no")
+  telefon          String
+  adres            String?
+  bankaIban        String?   @map("banka_iban")
+  acilIletisim     String?   @map("acil_iletisim")
+  notlar           String?
+  durum            AktifPasif @default(aktif)
+  kayitTarihi      DateTime  @default(now()) @map("kayit_tarihi")
+  olusturanId      String?   @map("olusturan_id")
+  olusturanAdi     String?   @map("olusturan_adi")
+  guncelleyenId    String?   @map("guncelleyen_id")
+  guncelleyenAdi   String?   @map("guncelleyen_adi")
+  guncellemeTarihi DateTime? @map("guncelleme_tarihi")
+  aktif            Boolean   @default(true)
 
-  ekipUyelikleri  EkipIsciIliskisi[]
+  ekipUyelikleri   EkipIsciIliskisi[]
 
   @@map("isciler")
 }
 
 model IsciEkibi {
-  id              String    @id @default(uuid())
-  ekipAdi         String    @map("ekip_adi")
-  ekipBasiId      String?   @map("ekip_basi_id")
-  durum           AktifPasif @default(aktif)
+  id               String    @id @default(uuid())
+  ekipAdi          String    @map("ekip_adi")
+  ekipBasiId       String?   @map("ekip_basi_id")
+  durum            AktifPasif @default(aktif)
+  olusturanId      String?   @map("olusturan_id")
+  olusturanAdi     String?   @map("olusturan_adi")
+  guncelleyenId    String?   @map("guncelleyen_id")
+  guncelleyenAdi   String?   @map("guncelleyen_adi")
+  guncellemeTarihi DateTime? @map("guncelleme_tarihi")
+  aktif            Boolean   @default(true)
 
-  uyeler          EkipIsciIliskisi[]
-  hasatGirisleri  HasatGirisi[]
+  uyeler           EkipIsciIliskisi[]
+  hasatGirisleri   HasatGirisi[]
 
   @@map("isci_ekipleri")
 }
@@ -135,28 +283,38 @@ model EkipIsciIliskisi {
 // =====================================================
 
 model Tarla {
-  id              String    @id @default(uuid())
-  tarlaAdi        String    @map("tarla_adi")
-  konumIl         String    @map("konum_il")
-  konumIlce       String    @map("konum_ilce")
-  konumKoy        String    @map("konum_koy")
-  adaNo           String?   @map("ada_no")
-  parselNo        String?   @map("parsel_no")
-  donum           Decimal   @db.Decimal(10, 2)
-  metrekare       Decimal?  @db.Decimal(12, 2)
-  rakim           Int?
-  cayCesidi       String?   @map("cay_cesidi")
-  dikimYili       Int?      @map("dikim_yili")
-  topraktipi      String?   @map("toprak_tipi")
-  sulamaDurumu    SulamaDurumu @map("sulama_durumu")
-  ciftciId        String    @map("ciftci_id")
-  koordinatLat    Decimal?  @map("koordinat_lat") @db.Decimal(10, 7)
-  koordinatLng    Decimal?  @map("koordinat_lng") @db.Decimal(10, 7)
-  durum           AktifPasif @default(aktif)
-  notlar          String?
+  id               String    @id @default(uuid())
+  tarlaAdi         String    @map("tarla_adi")
+  konumIl          String    @map("konum_il")
+  konumIlce        String    @map("konum_ilce")
+  konumKoy         String    @map("konum_koy")
+  adaNo            String?   @map("ada_no")
+  parselNo         String?   @map("parsel_no")
+  donum            Decimal   @db.Decimal(10, 2)
+  metrekare        Decimal?  @db.Decimal(12, 2)
+  rakim            Int?
+  cayCesidi        String?   @map("cay_cesidi")
+  dikimYili        Int?      @map("dikim_yili")
+  topraktipi       String?   @map("toprak_tipi")
+  sulamaDurumu     SulamaDurumu @map("sulama_durumu")
+  ciftciId         String?   @map("ciftci_id")
+  mulkiyetDurumu   MulkiyetDurumu @default(sahip) @map("mulkiyet_durumu")  // sahip mi kiracı mı
+  kiraciCiftciId   String?   @map("kiraci_ciftci_id")   // kiralıksa kiracı çiftçi (ciftci.id)
+  koordinatLat     Decimal?  @map("koordinat_lat") @db.Decimal(10, 7)
+  koordinatLng     Decimal?  @map("koordinat_lng") @db.Decimal(10, 7)
+  durum            AktifPasif @default(aktif)
+  notlar           String?
+  olusturanId      String?   @map("olusturan_id")
+  olusturanAdi     String?   @map("olusturan_adi")
+  guncelleyenId    String?   @map("guncelleyen_id")
+  guncelleyenAdi   String?   @map("guncelleyen_adi")
+  guncellemeTarihi DateTime? @map("guncelleme_tarihi")
+  aktif            Boolean   @default(true)
 
-  ciftci          Ciftci    @relation(fields: [ciftciId], references: [id])
-  hasatGirisleri  HasatGirisi[]
+  ciftci           Ciftci?   @relation(fields: [ciftciId], references: [id])
+  hasatGirisleri   HasatGirisi[]
+  havaVerileri     HavaVerisi[]
+  cayKalite        CayKalite[]
 
   @@map("tarlalar")
 }
@@ -166,23 +324,31 @@ model Tarla {
 // =====================================================
 
 model Ciftci {
-  id              String    @id @default(uuid())
-  adSoyad         String    @map("ad_soyad")
-  tcNo            String?   @map("tc_no")
-  telefon         String
-  telefon2        String?   @map("telefon_2")
-  adres           String?
-  il              String?
-  ilce            String?
-  koy             String?
-  cayKurNo        String?   @map("cay_kur_no")
-  bankaIban       String?   @map("banka_iban")
-  vergiNo         String?   @map("vergi_no")
-  durum           AktifPasif @default(aktif)
-  notlar          String?
-  kayitTarihi     DateTime  @default(now()) @map("kayit_tarihi")
+  id               String    @id @default(uuid())
+  adSoyad          String    @map("ad_soyad")
+  tcNo             String?   @map("tc_no")
+  telefon          String
+  telefon2         String?   @map("telefon_2")
+  adres            String?
+  il               String?
+  ilce             String?
+  koy              String?
+  cayKurNo         String?   @map("cay_kur_no")
+  bankaIban        String?   @map("banka_iban")
+  vergiNo          String?   @map("vergi_no")
+  durum            AktifPasif @default(aktif)
+  notlar           String?
+  kayitTarihi      DateTime  @default(now()) @map("kayit_tarihi")
+  olusturanId      String?   @map("olusturan_id")
+  olusturanAdi     String?   @map("olusturan_adi")
+  guncelleyenId    String?   @map("guncelleyen_id")
+  guncelleyenAdi   String?   @map("guncelleyen_adi")
+  guncellemeTarihi DateTime? @map("guncelleme_tarihi")
+  aktif            Boolean   @default(true)
 
-  tarlalar        Tarla[]
+  tarlalar         Tarla[]
+  donemler         HasatDonemCiftci[]
+  budamaBilgileri  BudamaBilgisi[]
 
   @@map("ciftciler")
 }
@@ -208,6 +374,12 @@ model Musteri {
   kontenjanVarMi    Boolean   @default(false) @map("kontenjan_var_mi")
   durum             AktifPasif @default(aktif)
   notlar            String?
+  olusturanId       String?   @map("olusturan_id")
+  olusturanAdi      String?   @map("olusturan_adi")
+  guncelleyenId     String?   @map("guncelleyen_id")
+  guncelleyenAdi    String?   @map("guncelleyen_adi")
+  guncellemeTarihi  DateTime? @map("guncelleme_tarihi")
+  aktif             Boolean   @default(true)
 
   hasatGirisleri    HasatGirisi[]
   kontenjanlar      Kontenjan[]
@@ -227,10 +399,17 @@ model Kontenjan {
   bitisTarihi         DateTime? @map("bitis_tarihi") @db.Date
   gunlukKontenjanKg   Decimal   @map("gunluk_kontenjan_kg") @db.Decimal(10, 2)
   durum               DonemDurumu @default(aktif)
+  olusturanId         String?   @map("olusturan_id")
+  olusturanAdi        String?   @map("olusturan_adi")
+  guncelleyenId       String?   @map("guncelleyen_id")
+  guncelleyenAdi      String?   @map("guncelleyen_adi")
+  guncellemeTarihi    DateTime? @map("guncelleme_tarihi")
+  aktif               Boolean   @default(true)
 
   surgun              Surgun    @relation(fields: [surgunId], references: [id])
   musteri             Musteri   @relation(fields: [musteriId], references: [id])
   gunlukTakip         KontenjanGunlukTakip[]
+  hasatGirisleri      HasatGirisi[]
 
   @@map("kontenjanlar")
 }
@@ -238,14 +417,23 @@ model Kontenjan {
 model KontenjanGunlukTakip {
   id                  String    @id @default(uuid())
   kontenjanId         String    @map("kontenjan_id")
+  hasatGirisId        String?   @map("hasat_girisi_id")  // Her hasat girişine 1 takip kaydı
   tarih               DateTime  @db.Date
   tartimKg            Decimal   @map("tartim_kg") @db.Decimal(10, 2)
   gunlukKontenjanKg   Decimal   @map("gunluk_kontenjan_kg") @db.Decimal(10, 2)
   oncekiBakiyeKg      Decimal   @map("onceki_bakiye_kg") @db.Decimal(10, 2)
-  hesaplananSatisKg   Decimal   @map("hesaplanan_satis_kg") @db.Decimal(10, 2)
+  hesaplananSatisKg   Decimal   @map("hesaplanan_satis_kg") @db.Decimal(10, 2)  // Günlük satış miktarı
   kalanBakiyeKg       Decimal   @map("kalan_bakiye_kg") @db.Decimal(10, 2)
+  olusturmaTarihi     DateTime  @default(now()) @map("olusturma_tarihi")        // Zincir sırası için
+  olusturanId         String?   @map("olusturan_id")
+  olusturanAdi        String?   @map("olusturan_adi")
+  guncelleyenId       String?   @map("guncelleyen_id")
+  guncelleyenAdi      String?   @map("guncelleyen_adi")
+  guncellemeTarihi    DateTime? @map("guncelleme_tarihi")
+  aktif               Boolean   @default(true)
 
-  kontenjan           Kontenjan @relation(fields: [kontenjanId], references: [id])
+  kontenjan           Kontenjan   @relation(fields: [kontenjanId], references: [id])
+  hasatGirisi         HasatGirisi? @relation(fields: [hasatGirisId], references: [id])
 
   @@map("kontenjan_gunluk_takip")
 }
@@ -257,36 +445,117 @@ model KontenjanGunlukTakip {
 model GelirKaydi {
   id                String    @id @default(uuid())
   surgunId          String    @map("surgun_id")
-  musteriId         String    @map("musteri_id")
+  musteriId         String?   @map("musteri_id")
+  musteriAdi        String?   @map("musteri_adi")        // Görüntüleme için
+  fiyatTuru         FiyatTuru? @map("fiyat_turu")        // devlet_fiyati veya ozel_fiyat
+  ay                Int?                                  // 1-12 (aylık gruplama)
+  yil               Int?                                  // ödeme yılı
   toplamKg          Decimal   @map("toplam_kg") @db.Decimal(12, 2)
-  birimFiyat        Decimal   @map("birim_fiyat") @db.Decimal(10, 2)
+  birimFiyat        Decimal   @map("birim_fiyat") @db.Decimal(10, 4)
   toplamTutar       Decimal   @map("toplam_tutar") @db.Decimal(14, 2)
   odemeDurumu       OdemeDurumu @default(odeme_bekleniyor) @map("odeme_durumu")
   odenenTutar       Decimal   @default(0) @map("odenen_tutar") @db.Decimal(14, 2)
   kalanTutar        Decimal   @map("kalan_tutar") @db.Decimal(14, 2)
   vadeTarihi        DateTime? @map("vade_tarihi") @db.Date
   olusturmaTarihi   DateTime  @default(now()) @map("olusturma_tarihi")
+  olusturanId       String?   @map("olusturan_id")
+  olusturanAdi      String?   @map("olusturan_adi")
+  guncelleyenId     String?   @map("guncelleyen_id")
+  guncelleyenAdi    String?   @map("guncelleyen_adi")
+  guncellemeTarihi  DateTime? @map("guncelleme_tarihi")
+  aktif             Boolean   @default(true)
 
-  surgun            Surgun    @relation(fields: [surgunId], references: [id])
+  surgun            Surgun        @relation(fields: [surgunId], references: [id])
+  odemeleri         GelirOdemesi[]
 
   @@map("gelir_kayitlari")
 }
 
 model OdemeKaydi {
-  id              String    @id @default(uuid())
-  kategori        OdemeKategorisi
-  aciklama        String
-  ilgiliEkipId    String?   @map("ilgili_ekip_id")
-  ilgiliIsciId    String?   @map("ilgili_isci_id")
-  hasatGirisId    String?   @map("hasat_giris_id")
-  tutar           Decimal   @db.Decimal(14, 2)
-  odemeDurumu     OdemeDurumu @default(odeme_bekleniyor) @map("odeme_durumu")
-  odenenTutar     Decimal   @default(0) @map("odenen_tutar") @db.Decimal(14, 2)
-  odemeTarihi     DateTime? @map("odeme_tarihi") @db.Date
-  odemeYontemi    OdemeYontemi? @map("odeme_yontemi")
-  olusturmaTarihi DateTime  @default(now()) @map("olusturma_tarihi")
+  id               String    @id @default(uuid())
+  kategori         OdemeKategorisi
+  aciklama         String
+  ilgiliEkipId     String?   @map("ilgili_ekip_id")
+  ilgiliIsciId     String?   @map("ilgili_isci_id")
+  hasatGirisId     String?   @map("hasat_giris_id")
+  tutar            Decimal   @db.Decimal(14, 2)
+  odemeDurumu      OdemeDurumu @default(odeme_bekleniyor) @map("odeme_durumu")
+  odenenTutar      Decimal   @default(0) @map("odenen_tutar") @db.Decimal(14, 2)
+  odemeTarihi      DateTime? @map("odeme_tarihi") @db.Date
+  odemeYontemi     OdemeYontemi? @map("odeme_yontemi")
+  olusturmaTarihi  DateTime  @default(now()) @map("olusturma_tarihi")
+  olusturanId      String?   @map("olusturan_id")
+  olusturanAdi     String?   @map("olusturan_adi")
+  guncelleyenId    String?   @map("guncelleyen_id")
+  guncelleyenAdi   String?   @map("guncelleyen_adi")
+  guncellemeTarihi DateTime? @map("guncelleme_tarihi")
+  aktif            Boolean   @default(true)
 
   @@map("odeme_kayitlari")
+}
+
+// =====================================================
+// MODUL 7B - BANKA / KASA
+// =====================================================
+
+model BankaHesabi {
+  id              String          @id @default(uuid())
+  hesapAdi        String          @map("hesap_adi")
+  bankaAdi        String?         @map("banka_adi")
+  hesapNo         String?         @map("hesap_no")
+  iban            String?
+  tur             BankaHesabiTuru @default(banka)
+  bakiye          Decimal         @default(0) @map("bakiye") @db.Decimal(14, 2)
+  kmhLimiti       Boolean         @default(false) @map("kmh_limiti")    // KMH (Kredili Mevduat) limiti açık mı?
+  alarmDurumu     Boolean         @default(false) @map("alarm_durumu")  // Bakiye yetersiz — KMH kullanıldı
+  aktif           Boolean         @default(true)
+  olusturmaTarihi DateTime        @default(now()) @map("olusturma_tarihi")
+
+  hareketler      BankaHareketi[]
+  gelirOdemeleri  GelirOdemesi[]
+  ekipmanGiderler EkipmanGider[]  @relation("EkipmanGiderBanka")
+  ekipmanGelirleri EkipmanGelir[] @relation("EkipmanGelirBanka")
+
+  @@map("banka_hesaplari")
+}
+
+model BankaHareketi {
+  id              String      @id @default(uuid())
+  bankaHesabiId   String      @map("banka_hesabi_id")
+  tip             BankaHareketTipi
+  tutar           Decimal     @db.Decimal(14, 2)
+  aciklama        String
+  tarih           DateTime    @db.Date
+  referansTipi    String?     @map("referans_tipi") // "gelir_kaydi" / "odeme_kaydi" / "manuel"
+  referansId      String?     @map("referans_id")
+  dekontUrl       String?     @map("dekont_url")
+  olusturmaTarihi DateTime    @default(now()) @map("olusturma_tarihi")
+  olusturanId     String?     @map("olusturan_id")
+  olusturanAdi    String?     @map("olusturan_adi")
+
+  bankaHesabi     BankaHesabi @relation(fields: [bankaHesabiId], references: [id])
+
+  @@map("banka_hareketleri")
+}
+
+model GelirOdemesi {
+  id              String      @id @default(uuid())
+  gelirKaydiId    String      @map("gelir_kaydi_id")
+  bankaHesabiId   String?     @map("banka_hesabi_id")
+  hesaplananTutar Decimal     @map("hesaplanan_tutar") @db.Decimal(14, 2)
+  gercekTutar     Decimal     @map("gercek_tutar") @db.Decimal(14, 2)
+  farkTutar       Decimal     @map("fark_tutar") @db.Decimal(14, 2)  // hesaplanan - gercek
+  odemeTarihi     DateTime    @map("odeme_tarihi") @db.Date
+  aciklama        String?
+  dekontUrl       String?     @map("dekont_url")
+  olusturmaTarihi DateTime    @default(now()) @map("olusturma_tarihi")
+  olusturanId     String?     @map("olusturan_id")
+  olusturanAdi    String?     @map("olusturan_adi")
+
+  gelirKaydi      GelirKaydi  @relation(fields: [gelirKaydiId], references: [id])
+  bankaHesabi     BankaHesabi? @relation(fields: [bankaHesabiId], references: [id])
+
+  @@map("gelir_odemeleri")
 }
 
 // =====================================================
@@ -327,10 +596,22 @@ enum OdemeYontemi {
 
 enum OdemeKategorisi {
   iscilik
+  yemek
   malzeme
   yakit
   gubre
   diger
+}
+
+enum BankaHesabiTuru {
+  banka
+  kasa
+  fark_hesabi
+}
+
+enum BankaHareketTipi {
+  giris
+  cikis
 }
 
 enum SulamaDurumu {
@@ -339,23 +620,499 @@ enum SulamaDurumu {
   karma
 }
 
+enum FiyatTuru {
+  devlet_fiyati
+  ozel_fiyat
+}
+
+enum MulkiyetDurumu {
+  sahip
+  kiralik
+}
+
+enum OdemeSekli {
+  pesin
+  vadeli
+}
+
 enum MusteriTipi {
   kurumsal
   pesincu
 }
 
 // =====================================================
-// NOT: Modul 8-21 modelleri ilgili yatay-prisma agent'i
-// tarafindan, ilgili modul ile birlikte eklenecek.
-//
-// Eklenecekler:
-// - Malzeme, StokHareketi, Ekipman (Modul 8)
-// - HavaVerisi (Modul 11)
-// - Bildirim (Modul 12)
-// - Kullanici (Modul 13)
-// - AktiviteLogu (Modul 14)
-// - Fotograf (Modul 16)
-// - CayKalite (Modul 19)
-// - QrKod (Modul 20)
-// - OfflineSyncKuyrugu (Modul 21)
+// MODUL 14 - AKTIVITE LOGU
 // =====================================================
+
+model AktiviteLogu {
+  id            String    @id @default(uuid())
+  kullaniciId   String?   @map("kullanici_id")
+  islemTipi     IslemTipi @map("islem_tipi")
+  modul         String
+  tablo         String
+  kayitId       String?   @map("kayit_id")
+  eskiDeger     Json?     @map("eski_deger")
+  yeniDeger     Json?     @map("yeni_deger")
+  ipAdresi      String?   @map("ip_adresi")
+  cihazBilgisi  String?   @map("cihaz_bilgisi")
+  tarih         DateTime  @default(now())
+
+  @@map("aktivite_loglari")
+}
+
+enum IslemTipi {
+  olusturma
+  guncelleme
+  silme
+  giris
+  cikis
+}
+
+// =====================================================
+// MODUL 8 - ENVANTER VE MALZEME YONETIMI
+// =====================================================
+
+model Malzeme {
+  id               String          @id @default(uuid())
+  malzemeAdi       String          @map("malzeme_adi")
+  kategori         MalzemeKategorisi
+  altKategori      String?         @map("alt_kategori")
+  birim            Birim
+  mevcutStok       Decimal         @default(0) @map("mevcut_stok") @db.Decimal(12, 3)
+  minimumStok      Decimal         @default(0) @map("minimum_stok") @db.Decimal(12, 3)
+  birimFiyat       Decimal         @default(0) @map("birim_fiyat") @db.Decimal(10, 2)
+  depoKonumu       String?         @map("depo_konumu")
+  durum            AktifPasif      @default(aktif)
+  notlar           String?
+  olusturanId      String?         @map("olusturan_id")
+  olusturanAdi     String?         @map("olusturan_adi")
+  guncelleyenId    String?         @map("guncelleyen_id")
+  guncelleyenAdi   String?         @map("guncelleyen_adi")
+  guncellemeTarihi DateTime?       @map("guncelleme_tarihi")
+  aktif            Boolean         @default(true)
+
+  stokHareketleri  StokHareketi[]
+
+  @@map("malzemeler")
+}
+
+model StokHareketi {
+  id               String       @id @default(uuid())
+  malzemeId        String       @map("malzeme_id")
+  hareketTipi      HareketTipi  @map("hareket_tipi")
+  miktar           Decimal      @db.Decimal(12, 3)
+  birimFiyat       Decimal?     @map("birim_fiyat") @db.Decimal(10, 2)
+  toplamTutar      Decimal?     @map("toplam_tutar") @db.Decimal(14, 2)
+  tarlaId          String?      @map("tarla_id")
+  tedarikci        String?
+  faturaNo         String?      @map("fatura_no")
+  tarih            DateTime     @db.Date
+  notlar           String?
+  olusturmaTarihi  DateTime     @default(now()) @map("olusturma_tarihi")
+  olusturanId      String?      @map("olusturan_id")
+  olusturanAdi     String?      @map("olusturan_adi")
+  guncelleyenId    String?      @map("guncelleyen_id")
+  guncelleyenAdi   String?      @map("guncelleyen_adi")
+  guncellemeTarihi DateTime?    @map("guncelleme_tarihi")
+  aktif            Boolean      @default(true)
+
+  malzeme          Malzeme      @relation(fields: [malzemeId], references: [id])
+
+  @@map("stok_hareketleri")
+}
+
+model Ekipman {
+  id                  String              @id @default(uuid())
+  ekipmanAdi          String              @map("ekipman_adi")
+  kategori            EkipmanKategorisi   @default(diger)
+  marka               String?
+  model               String?
+  seriNo              String?             @map("seri_no")
+  plaka               String?             // sadece araç kategorisinde
+  kmSayaci            Int?                @map("km_sayaci")
+  satinAlmaTarihi     DateTime?           @map("satin_alma_tarihi") @db.Date
+  satinAlmaFiyati     Decimal?            @map("satin_alma_fiyati") @db.Decimal(12, 2)
+  garantiBitis        DateTime?           @map("garanti_bitis") @db.Date
+  sonBakimTarihi      DateTime?           @map("son_bakim_tarihi") @db.Date
+  sonrakiBakimTarihi  DateTime?           @map("sonraki_bakim_tarihi") @db.Date
+  durum               EkipmanDurumu       @default(aktif)
+  calismaSaati        Decimal?            @map("calisma_saati") @db.Decimal(10, 1)
+  notlar              String?
+  olusturanId         String?             @map("olusturan_id")
+  olusturanAdi        String?             @map("olusturan_adi")
+  guncelleyenId       String?             @map("guncelleyen_id")
+  guncelleyenAdi      String?             @map("guncelleyen_adi")
+  guncellemeTarihi    DateTime?           @map("guncelleme_tarihi")
+  aktif               Boolean             @default(true)
+
+  giderler            EkipmanGider[]
+  gelirler            EkipmanGelir[]
+
+  @@map("ekipmanlar")
+}
+
+model EkipmanGider {
+  id              String              @id @default(uuid())
+  ekipmanId       String              @map("ekipman_id")
+  tarih           DateTime            @db.Date
+  giderTipi       EkipmanGiderTipi    @map("gider_tipi")
+  tutar           Decimal             @db.Decimal(12, 2)
+  aciklama        String?
+  belgNo          String?             @map("belg_no")
+  kilometre       Int?                // araç km
+  litre           Decimal?            @db.Decimal(8, 2) // yakıt litresi
+  bankaHesabiId   String?             @map("banka_hesabi_id")
+  kullanilanMalzemeler Json?           @map("kullanilan_malzemeler") // [{malzemeId, ad, miktar, birim}]
+  olusturanId     String?             @map("olusturan_id")
+  olusturanAdi    String?             @map("olusturan_adi")
+  guncelleyenId   String?             @map("guncelleyen_id")
+  guncelleyenAdi  String?             @map("guncelleyen_adi")
+  guncellemeTarihi DateTime?          @map("guncelleme_tarihi")
+  aktif           Boolean             @default(true)
+
+  ekipman         Ekipman             @relation(fields: [ekipmanId], references: [id])
+  bankaHesabi     BankaHesabi?        @relation("EkipmanGiderBanka", fields: [bankaHesabiId], references: [id])
+
+  @@map("ekipman_giderler")
+}
+
+model EkipmanGelir {
+  id              String              @id @default(uuid())
+  ekipmanId       String              @map("ekipman_id")
+  tarih           DateTime            @db.Date
+  gelirTipi       EkipmanGelirTipi    @map("gelir_tipi")
+  tutar           Decimal             @db.Decimal(12, 2)
+  aciklama        String?
+  mesafeKm        Int?                @map("mesafe_km")
+  musteriAdi      String?             @map("musteri_adi")
+  belgNo          String?             @map("belg_no")
+  bankaHesabiId   String?             @map("banka_hesabi_id")
+  faturaDosyaUrl  String?             @map("fatura_dosya_url")
+  // Nakliye özel alanlar
+  kantarBosKg     Decimal?            @map("kantar_bos_kg") @db.Decimal(10, 2)
+  kantarDoluKg    Decimal?            @map("kantar_dolu_kg") @db.Decimal(10, 2)
+  netMiktar       Decimal?            @map("net_miktar") @db.Decimal(10, 3) // kg veya m3
+  yukCinsi        String?             @map("yuk_cinsi")
+  yukBirimi       String?             @map("yuk_birimi") // kg | m3 | adet
+  olusturanId     String?             @map("olusturan_id")
+  olusturanAdi    String?             @map("olusturan_adi")
+  guncelleyenId   String?             @map("guncelleyen_id")
+  guncelleyenAdi  String?             @map("guncelleyen_adi")
+  guncellemeTarihi DateTime?          @map("guncelleme_tarihi")
+  aktif           Boolean             @default(true)
+
+  ekipman         Ekipman             @relation(fields: [ekipmanId], references: [id])
+  bankaHesabi     BankaHesabi?        @relation("EkipmanGelirBanka", fields: [bankaHesabiId], references: [id])
+
+  @@map("ekipman_gelirler")
+}
+
+enum EkipmanKategorisi {
+  arac            // Araç (otomobil, kamyonet, kamyon)
+  traktor         // Traktör
+  el_aleti        // El Aleti
+  motorlu_alet    // Motorlu Alet (testere, çim biçme vs.)
+  sarjli_alet     // Şarjlı/Elektrikli Alet
+  sulama          // Sulama Ekipmanı
+  diger           // Diğer
+}
+
+enum EkipmanGiderTipi {
+  yakit           // Yakıt (mazot, benzin, LPG)
+  bakim           // Periyodik Bakım
+  onarim          // Onarım/Tamirat
+  lastik          // Lastik
+  sigorta         // Sigorta
+  vergi           // MTV / Vergi
+  muayene         // Muayene
+  yedek_parca     // Yedek Parça
+  yikama          // Yıkama/Temizlik
+  diger           // Diğer
+}
+
+enum EkipmanGelirTipi {
+  nakliye         // Nakliye / Taşımacılık
+  kiralama        // Kiralama
+  hizmet          // Hizmet (tarla sürme vs.)
+  diger           // Diğer
+}
+
+enum MalzemeKategorisi {
+  gubre
+  tarim_ilaci
+  alet_makine
+  yakit_sarf
+  yag
+  yedek_parca
+  diger
+}
+
+enum Birim {
+  adet
+  kg
+  litre
+  paket
+  cuval
+}
+
+enum HareketTipi {
+  giris
+  cikis
+  fire
+  iade
+}
+
+enum EkipmanDurumu {
+  aktif
+  bakimda
+  arizali
+  hurda
+}
+
+// =====================================================
+// MODUL 16 - FOTOGRAF YONETIMI
+// =====================================================
+
+model Fotograf {
+  id            String        @id @default(uuid())
+  modul         FotografModul
+  kayitId       String        @map("kayit_id")
+  dosyaYolu     String        @map("dosya_yolu")
+  dosyaAdi      String        @map("dosya_adi")
+  boyutKb       Int           @map("boyut_kb")
+  aciklama      String?
+  yuklemeTarihi DateTime      @default(now()) @map("yukleme_tarihi")
+
+  @@map("fotograflar")
+}
+
+enum FotografModul {
+  hasat
+  tarla
+  ekipman
+  malzeme
+  kullanici
+}
+
+// =====================================================
+// MODUL 11 - HAVA DURUMU
+// =====================================================
+
+model HavaVerisi {
+  id              String    @id @default(uuid())
+  tarlaId         String?   @map("tarla_id")
+  tarih           DateTime  @db.Date
+  sicaklikMin     Decimal?  @map("sicaklik_min") @db.Decimal(5, 2)
+  sicaklikMax     Decimal?  @map("sicaklik_max") @db.Decimal(5, 2)
+  sicaklikOrtalama Decimal? @map("sicaklik_ortalama") @db.Decimal(5, 2)
+  nemOrani        Decimal?  @map("nem_orani") @db.Decimal(5, 2)
+  yagisMm         Decimal?  @map("yagis_mm") @db.Decimal(7, 2)
+  ruzgarHizi      Decimal?  @map("ruzgar_hizi") @db.Decimal(6, 2)
+  havaDurumu      String?   @map("hava_durumu")
+  il              String?
+  ilce            String?
+  kaynakLat       Decimal?  @map("kaynak_lat") @db.Decimal(10, 7)
+  kaynakLng       Decimal?  @map("kaynak_lng") @db.Decimal(10, 7)
+  saatlikVeriler  Json?     @map("saatlik_veriler")
+  cronCekimi      Boolean   @default(false) @map("cron_cekimi")
+  guncellemeTarihi DateTime @default(now()) @map("guncelleme_tarihi")
+  olusturmaTarihi DateTime  @default(now()) @map("olusturma_tarihi")
+
+  tarla           Tarla?    @relation(fields: [tarlaId], references: [id])
+
+  @@map("hava_verileri")
+}
+
+// =====================================================
+// MODUL 12 - BILDIRIM VE UYARI SISTEMI
+// =====================================================
+
+model Bildirim {
+  id            String          @id @default(uuid())
+  tip           BildirimTipi
+  baslik        String
+  mesaj         String
+  oncelik       BildirimOnceligi @default(bilgi)
+  okundu        Boolean         @default(false)
+  ilgiliModul   String?         @map("ilgili_modul")
+  ilgiliKayitId String?         @map("ilgili_kayit_id")
+  olusturmaTarihi DateTime      @default(now()) @map("olusturma_tarihi")
+
+  @@map("bildirimler")
+}
+
+enum BildirimTipi {
+  stok_uyarisi
+  odeme_vadesi
+  bakim_hatirlatma
+  kontenjan_degisimi
+  surgun_kapanis
+  hava_uyarisi
+  verim_dususu
+  garanti_bitis
+}
+
+enum BildirimOnceligi {
+  yuksek
+  orta
+  bilgi
+}
+
+// =====================================================
+// MODUL 19 - CAY KALİTE TAKİBİ
+// =====================================================
+
+model CayKalite {
+  id               String          @id @default(uuid())
+  tarih            DateTime        @db.Date
+  tarlaId          String?         @map("tarla_id")
+  hasatGirisiId    String?         @map("hasat_girisi_id")
+  toplamaYontemi   ToplamaYontemi  @default(elle) @map("toplama_yontemi")
+  agirlikKg        Decimal         @map("agirlik_kg") @db.Decimal(10, 2)
+  yaprakNotu       Int             @map("yaprak_notu")         // 1-5
+  nemOrani         Decimal?        @map("nem_orani") @db.Decimal(5, 2)     // %
+  fizikselHata     Decimal?        @map("fiziksel_hata") @db.Decimal(5, 2) // %
+  renk             String?
+  koku             String?
+  genelNot         Int             @map("genel_not")           // 1-5
+  havaScaklik      Decimal?        @map("hava_sicaklik") @db.Decimal(5, 2)
+  havaNem          Decimal?        @map("hava_nem") @db.Decimal(5, 2)
+  notlar           String?
+  olusturmaTarihi  DateTime        @default(now()) @map("olusturma_tarihi")
+  olusturanId      String?         @map("olusturan_id")
+  olusturanAdi     String?         @map("olusturan_adi")
+  guncelleyenId    String?         @map("guncelleyen_id")
+  guncelleyenAdi   String?         @map("guncelleyen_adi")
+  guncellemeTarihi DateTime?       @map("guncelleme_tarihi")
+  aktif            Boolean         @default(true)
+
+  tarla            Tarla?          @relation(fields: [tarlaId], references: [id])
+  hasatGirisi      HasatGirisi?    @relation(fields: [hasatGirisiId], references: [id])
+
+  @@map("cay_kalite")
+}
+
+enum ToplamaYontemi {
+  elle
+  makine
+  karma
+}
+
+// =====================================================
+// SISTEM AYARLARI
+// =====================================================
+
+model SistemAyar {
+  id               String    @id @default(uuid())
+  anahtar          String    @unique
+  deger            String    @db.Text
+  aciklama         String?
+  guncellemeTarihi DateTime  @default(now()) @map("guncelleme_tarihi")
+
+  @@map("sistem_ayarlar")
+}
+
+// =====================================================
+// MODUL 13 - KULLANICI VE YETKİLENDİRME
+// =====================================================
+
+model Kullanici {
+  id               String        @id @default(uuid())
+  supabaseId       String        @unique @map("supabase_id")
+  adSoyad          String        @map("ad_soyad")
+  eposta           String        @unique
+  telefon          String?
+  profilFotoUrl    String?       @map("profil_foto_url")
+  rol              KullaniciRol  @default(izleyici)
+  durum            AktifPasif    @default(aktif)
+  sonGiris         DateTime?     @map("son_giris")
+  olusturmaTarihi  DateTime      @default(now()) @map("olusturma_tarihi")
+  olusturanId      String?       @map("olusturan_id")
+  olusturanAdi     String?       @map("olusturan_adi")
+  guncelleyenId    String?       @map("guncelleyen_id")
+  guncelleyenAdi   String?       @map("guncelleyen_adi")
+  guncellemeTarihi DateTime?     @map("guncelleme_tarihi")
+  aktif            Boolean       @default(true)
+
+  @@map("kullanicilar")
+}
+
+enum KullaniciRol {
+  admin
+  muhasebeci
+  tarimci
+  izleyici
+}
+
+// =====================================================
+// MODUL 9 - AI ASISTAN
+// =====================================================
+
+model AsistanSohbet {
+  id              String    @id @default(uuid())
+  baslik          String    @default("Yeni Sohbet")
+  saglayi         AiSaglayici @map("saglayici")
+  model           String
+  olusturmaTarihi DateTime  @default(now()) @map("olusturma_tarihi")
+  guncellenmeTarihi DateTime @updatedAt @map("guncellenme_tarihi")
+
+  mesajlar        AsistanMesaj[]
+  tokenKullanim   TokenKullanim[]
+
+  @@map("asistan_sohbetler")
+}
+
+model AsistanMesaj {
+  id              String    @id @default(uuid())
+  sohbetId        String    @map("sohbet_id")
+  rol             MesajRol
+  icerik          String    @db.Text
+  girilenToken    Int?      @map("girilen_token")
+  cikanToken      Int?      @map("cikan_token")
+  olusturmaTarihi DateTime  @default(now()) @map("olusturma_tarihi")
+
+  sohbet          AsistanSohbet @relation(fields: [sohbetId], references: [id], onDelete: Cascade)
+
+  @@map("asistan_mesajlar")
+}
+
+model TokenKullanim {
+  id              String    @id @default(uuid())
+  sohbetId        String    @map("sohbet_id")
+  saglayi         AiSaglayici @map("saglayici")
+  model           String
+  girilenToken    Int       @map("girilen_token")
+  cikanToken      Int       @map("cikan_token")
+  toplamToken     Int       @map("toplam_token")
+  tahminiMaliyet  Decimal?  @map("tahmini_maliyet") @db.Decimal(10, 6)
+  tarih           DateTime  @default(now())
+
+  sohbet          AsistanSohbet @relation(fields: [sohbetId], references: [id], onDelete: Cascade)
+
+  @@map("token_kullanimlar")
+}
+
+model AiAyar {
+  id              String    @id @default(uuid())
+  saglayi         AiSaglayici @unique @map("saglayici")
+  apiAnahtari     String?   @map("api_anahtari") @db.Text
+  varsayilanModel String?   @map("varsayilan_model")
+  aktif           Boolean   @default(false)
+  ayarlar         Json?     // extra config (baseUrl for Ollama, etc.)
+
+  @@map("ai_ayarlar")
+}
+
+enum AiSaglayici {
+  claude
+  openai
+  gemini
+  groq
+  ollama
+}
+
+enum MesajRol {
+  kullanici
+  asistan
+  sistem
+}

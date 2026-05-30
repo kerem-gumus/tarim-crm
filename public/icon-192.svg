@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a6b1a"/>
+      <stop offset="100%" stop-color="#2da02d"/>
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.97"/>
+      <stop offset="45%" stop-color="#d4f5d4" stop-opacity="0.93"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.87"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="3.84" stdDeviation="4.800000000000001" flood-color="rgba(0,0,0,0.25)"/>
+    </filter>
+  </defs>
+
+  <!-- Arka plan -->
+  <rect width="192" height="192" rx="42.24" ry="42.24" fill="url(#bgGrad)"/>
+
+  <!-- Yaprak (döndürülmüş, merkez) -->
+  <g transform="translate(96,96) rotate(-25)" filter="url(#shadow)">
+    <!-- Ana yaprak şekli -->
+    <path d="M0,-69.12 C49.766400000000004,-38.016000000000005 49.766400000000004,38.016000000000005 0,69.12 C-49.766400000000004,38.016000000000005 -49.766400000000004,-38.016000000000005 0,-69.12 Z" fill="url(#leafGrad)"/>
+    <!-- Orta damar -->
+    <line x1="0" y1="-58.752" x2="0" y2="58.752" stroke="#2d7a2d" stroke-width="4.224" stroke-opacity="0.45"/>
+    <!-- Yan damarlar -->
+    <line x1="0" y1="-24.192" x2="35.942400000000006" y2="-38.016000000000005" stroke="#2d7a2d" stroke-width="2.496" stroke-opacity="0.3"/>
+    <line x1="0" y1="-24.192" x2="-35.942400000000006" y2="-38.016000000000005" stroke="#2d7a2d" stroke-width="2.496" stroke-opacity="0.3"/>
+    <line x1="0" y1="3.4560000000000004" x2="40.0896" y2="-10.368" stroke="#2d7a2d" stroke-width="2.496" stroke-opacity="0.3"/>
+    <line x1="0" y1="3.4560000000000004" x2="-40.0896" y2="-10.368" stroke="#2d7a2d" stroke-width="2.496" stroke-opacity="0.3"/>
+    <line x1="0" y1="29.0304" x2="34.56" y2="15.2064" stroke="#2d7a2d" stroke-width="2.496" stroke-opacity="0.3"/>
+    <line x1="0" y1="29.0304" x2="-34.56" y2="15.2064" stroke="#2d7a2d" stroke-width="2.496" stroke-opacity="0.3"/>
+  </g>
+
+  
+</svg>

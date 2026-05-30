@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a6b1a"/>
+      <stop offset="100%" stop-color="#2da02d"/>
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.97"/>
+      <stop offset="45%" stop-color="#d4f5d4" stop-opacity="0.93"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.87"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="10.24" stdDeviation="12.8" flood-color="rgba(0,0,0,0.25)"/>
+    </filter>
+  </defs>
+
+  <!-- Arka plan -->
+  <rect width="512" height="512" rx="112.64" ry="112.64" fill="url(#bgGrad)"/>
+
+  <!-- Yaprak (döndürülmüş, merkez) -->
+  <g transform="translate(256,235.52) rotate(-25)" filter="url(#shadow)">
+    <!-- Ana yaprak şekli -->
+    <path d="M0,-184.32 C132.7104,-101.376 132.7104,101.376 0,184.32 C-132.7104,101.376 -132.7104,-101.376 0,-184.32 Z" fill="url(#leafGrad)"/>
+    <!-- Orta damar -->
+    <line x1="0" y1="-156.672" x2="0" y2="156.672" stroke="#2d7a2d" stroke-width="11.264" stroke-opacity="0.45"/>
+    <!-- Yan damarlar -->
+    <line x1="0" y1="-64.512" x2="95.8464" y2="-101.376" stroke="#2d7a2d" stroke-width="6.656" stroke-opacity="0.3"/>
+    <line x1="0" y1="-64.512" x2="-95.8464" y2="-101.376" stroke="#2d7a2d" stroke-width="6.656" stroke-opacity="0.3"/>
+    <line x1="0" y1="9.216" x2="106.90559999999999" y2="-27.648" stroke="#2d7a2d" stroke-width="6.656" stroke-opacity="0.3"/>
+    <line x1="0" y1="9.216" x2="-106.90559999999999" y2="-27.648" stroke="#2d7a2d" stroke-width="6.656" stroke-opacity="0.3"/>
+    <line x1="0" y1="77.4144" x2="92.16" y2="40.550399999999996" stroke="#2d7a2d" stroke-width="6.656" stroke-opacity="0.3"/>
+    <line x1="0" y1="77.4144" x2="-92.16" y2="40.550399999999996" stroke="#2d7a2d" stroke-width="6.656" stroke-opacity="0.3"/>
+  </g>
+
+  <!-- Metin -->
+  <text x="256" y="465.92" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="51" fill="rgba(255,255,255,0.90)" letter-spacing="2.56">TARIMCRM</text>
+</svg>
