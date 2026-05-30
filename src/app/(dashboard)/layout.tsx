@@ -2,10 +2,11 @@ import Kenarlik from '@/components/layout/Kenarlik';
 import UstBar from '@/components/layout/UstBar';
 import OfflineBari from '@/components/mobil/OfflineBari';
 import MobilAltNav from '@/components/layout/MobilAltNav';
+import OturumKorucu from '@/components/layout/OturumKorucu';
 
 export default function DashboardDuzeni({ children }: { children: React.ReactNode }) {
   return (
-    <>
+    <OturumKorucu>
       <OfflineBari />
       <div className="flex h-screen bg-gray-50">
         {/* Masaüstü sidebar — mobilde gizli */}
@@ -25,6 +26,6 @@ export default function DashboardDuzeni({ children }: { children: React.ReactNod
 
       {/* Mobil alt navigasyon — masaüstünde gizli */}
       <MobilAltNav />
-    </>
+    </OturumKorucu>
   );
 }

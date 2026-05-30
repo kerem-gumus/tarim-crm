@@ -1,17 +1,26 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 export default function GirisYapSayfasi() {
   const yonlendirici = useRouter();
+  const aramaParams = useSearchParams();
   const [eposta, setEposta] = useState('');
   const [sifre, setSifre] = useState('');
   const [hata, setHata] = useState('');
   const [yukleniyor, setYukleniyor] = useState(false);
   const [sifreSifirlamaModu, setSifreSifirlamaModu] = useState(false);
   const [sifirlamaMesaji, setSifirlamaMesaji] = useState('');
+  const [bilgi, setBilgi] = useState('');
+
+  useEffect(() => {
+    const sebep = aramaParams.get('sebep');
+    if (sebep === 'oturum_suresi_doldu') {
+      setBilgi('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
+    }
+  }, [aramaParams]);
 
   async function handleSifreSifirla(e: React.FormEvent) {
     e.preventDefault();
@@ -104,6 +113,9 @@ export default function GirisYapSayfasi() {
             </div>
           )}
 
+          {bilgi && (
+            <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-700">{bilgi}</p>
+          )}
           {hata && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{hata}</p>
           )}

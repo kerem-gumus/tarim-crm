@@ -56,7 +56,16 @@
       "Bash(git -C /Users/kerem.gumus/Desktop/tarim-crm/.claude/worktrees/agent-ae1791542e4232cdd status --short)",
       "Bash(git -C /Users/kerem.gumus/Desktop/tarim-crm/.claude/worktrees/agent-ae1791542e4232cdd show HEAD:src/app/\\\\\\(dashboard\\\\\\)/finans/page.tsx)",
       "Bash(node -e \"require\\('sharp'\\)\")",
-      "Bash(node /Users/kerem.gumus/Desktop/tarim-crm/scripts/icon-olustur.mjs)"
+      "Bash(node /Users/kerem.gumus/Desktop/tarim-crm/scripts/icon-olustur.mjs)",
+      "Bash(git remote *)",
+      "Bash(git add *)",
+      "Bash(git reset *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git config *)",
+      "Bash(git commit -m 'fix: middleware anonim kullanıcı kontrolü eklendi — is_anonymous ve email zorunlu *)",
+      "Bash(node -e ' *)",
+      "Bash(python3 -m json.tool)"
     ],
     "additionalDirectories": [
       "/Users/kerem.gumus/Desktop/tarim-crm/src/app/api/fotograflar"
