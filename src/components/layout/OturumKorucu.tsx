@@ -1,105 +1,84 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-// sessionStorage anahtarı — tarayıcı kapanınca otomatik silinir
-const TARAYICI_OTURUM_ANAHTARI = 'tarimcrm_tarayici_aktif'
-const SON_AKTIVITE_ANAHTARI = 'tarimcrm_son_aktivite'
+const BAYRAK = 'tarimcrm_tarayici_aktif'
+const SON_AKTIVITE = 'tarimcrm_son_aktivite'
 const HAREKETSIZLIK_MS = 8 * 60 * 60 * 1000 // 8 saat
 
 export default function OturumKorucu({ children }: { children: React.ReactNode }) {
   const yonlendirici = useRouter()
-  const zamanlayici = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    async function oturumKontrol() {
-      const { data: { session } } = await supabase.auth.getSession()
+    let temizlendi = false
 
-      // Oturum yoksa zaten middleware login'e yönlendirdi, bir şey yapma
-      if (!session) return
+    async function kontrol() {
+      const bayrakVar = sessionStorage.getItem(BAYRAK)
 
-      // Tarayıcı oturum flag'i var mı?
-      const tarayiciAktif = sessionStorage.getItem(TARAYICI_OTURUM_ANAHTARI)
-
-      if (!tarayiciAktif) {
-        // Tarayıcı kapatılıp yeniden açılmış — Supabase oturumu kalıcı kalmış
-        // Güvenlik gereği çıkış yap
-        await supabase.auth.signOut()
-        sessionStorage.removeItem(TARAYICI_OTURUM_ANAHTARI)
-        localStorage.removeItem(SON_AKTIVITE_ANAHTARI)
-        yonlendirici.replace('/login')
-        return
+      if (!bayrakVar) {
+        // Tarayıcı kapatılıp açılmış — session temizlenmeli
+        // Önce sign-out yap, SONRA flag set et (flag buraya kadar set edilmez)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          await supabase.auth.signOut()
+        }
+        if (!temizlendi) {
+          localStorage.removeItem(SON_AKTIVITE)
+          yonlendirici.replace('/login')
+        }
+        return // Flag set etme — login sayfası set edecek
       }
 
       // Hareketsizlik kontrolü
-      const sonAktivite = localStorage.getItem(SON_AKTIVITE_ANAHTARI)
+      const sonAktivite = localStorage.getItem(SON_AKTIVITE)
       if (sonAktivite) {
-        const gecenSure = Date.now() - parseInt(sonAktivite)
-        if (gecenSure >= HAREKETSIZLIK_MS) {
+        const gecen = Date.now() - parseInt(sonAktivite)
+        if (gecen >= HAREKETSIZLIK_MS) {
           await supabase.auth.signOut()
-          sessionStorage.removeItem(TARAYICI_OTURUM_ANAHTARI)
-          localStorage.removeItem(SON_AKTIVITE_ANAHTARI)
-          yonlendirici.replace('/login?sebep=oturum_suresi_doldu')
+          sessionStorage.removeItem(BAYRAK)
+          localStorage.removeItem(SON_AKTIVITE)
+          if (!temizlendi) yonlendirici.replace('/login?sebep=oturum_suresi_doldu')
           return
         }
       }
 
-      // Her şey yolunda — aktivite zamanını güncelle
-      localStorage.setItem(SON_AKTIVITE_ANAHTARI, Date.now().toString())
+      // Kontrol geçti — aktiviteyi güncelle
+      localStorage.setItem(SON_AKTIVITE, Date.now().toString())
     }
 
-    oturumKontrol()
+    kontrol()
+
+    return () => { temizlendi = true }
   }, [yonlendirici])
 
   useEffect(() => {
-    // Tarayıcı oturum flag'ini kur (tarayıcı kapanınca silinir)
-    sessionStorage.setItem(TARAYICI_OTURUM_ANAHTARI, '1')
-
-    // Kullanıcı aktivitesini takip et
-    const aktiviteKaydet = () => {
-      localStorage.setItem(SON_AKTIVITE_ANAHTARI, Date.now().toString())
+    // Bayrak zaten varsa yenile, yoksa KOYMA (kontrol useEffect bunu yönetir)
+    if (sessionStorage.getItem(BAYRAK)) {
+      sessionStorage.setItem(BAYRAK, '1')
     }
 
+    // Aktivite takibi
+    const aktiviteKaydet = () => localStorage.setItem(SON_AKTIVITE, Date.now().toString())
     const OLAYLAR = ['mousedown', 'keydown', 'touchstart', 'scroll']
     OLAYLAR.forEach((o) => window.addEventListener(o, aktiviteKaydet, { passive: true }))
 
-    // Hareketsizlik zamanlayıcısı
-    function zamanlayiciKur() {
-      if (zamanlayici.current) clearTimeout(zamanlayici.current)
-      zamanlayici.current = setTimeout(async () => {
-        await supabase.auth.signOut()
-        sessionStorage.removeItem(TARAYICI_OTURUM_ANAHTARI)
-        localStorage.removeItem(SON_AKTIVITE_ANAHTARI)
-        yonlendirici.replace('/login?sebep=oturum_suresi_doldu')
-      }, HAREKETSIZLIK_MS)
-    }
-
-    zamanlayiciKur()
-    window.addEventListener('mousedown', zamanlayiciKur, { passive: true })
-    window.addEventListener('keydown', zamanlayiciKur, { passive: true })
-    window.addEventListener('touchstart', zamanlayiciKur, { passive: true })
-
-    // Token yenileme (55 dakikada bir)
-    const tokenYenileme = setInterval(async () => {
+    // Token yenileme
+    const tokenInterval = setInterval(async () => {
       const { error } = await supabase.auth.refreshSession()
       if (error) {
-        sessionStorage.removeItem(TARAYICI_OTURUM_ANAHTARI)
+        sessionStorage.removeItem(BAYRAK)
         await supabase.auth.signOut()
-        yonlendirici.replace('/login')
+        window.location.href = '/login'
       }
     }, 55 * 60 * 1000)
 
     return () => {
-      if (zamanlayici.current) clearTimeout(zamanlayici.current)
-      clearInterval(tokenYenileme)
+      clearInterval(tokenInterval)
       OLAYLAR.forEach((o) => window.removeEventListener(o, aktiviteKaydet))
-      window.removeEventListener('mousedown', zamanlayiciKur)
-      window.removeEventListener('keydown', zamanlayiciKur)
-      window.removeEventListener('touchstart', zamanlayiciKur)
     }
-  }, [yonlendirici])
+  }, [])
 
   return <>{children}</>
 }
