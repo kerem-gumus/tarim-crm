@@ -18,34 +18,32 @@ export async function middleware(istek: NextRequest) {
           cerezlerAyarlanacak.forEach(({ name, value }) =>
             istek.cookies.set(name, value),
           );
-          yanit = NextResponse.next({
-            request: istek,
+          yanit = NextResponse.next({ request: istek });
+
+          cerezlerAyarlanacak.forEach(({ name, value, options }) => {
+            // maxAge ve expires kaldır → session cookie olur
+            // Session cookie tarayıcı kapanınca otomatik silinir
+            const { maxAge: _m, expires: _e, ...sessionOptions } = options ?? {};
+            yanit.cookies.set(name, value, sessionOptions);
           });
-          cerezlerAyarlanacak.forEach(({ name, value, options }) =>
-            yanit.cookies.set(name, value, options),
-          );
         },
       },
     },
   );
 
-  // Kullanıcı oturumunu kontrol et (getUser ile)
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Anonim kullanıcıları ve e-postasız oturumları reddet
-  // Supabase "Anonymous Sign-in" açıksa is_anonymous=true gelir — bunlar geçersiz sayılır
+  // Anonim ve e-postasız kullanıcıları reddet
   const gercekKullanici = user && !user.is_anonymous && !!user.email ? user : null;
 
   const yol = istek.nextUrl.pathname;
 
-  // Login sayfasına giden oturum açmış kullanıcıyı ana sayfaya yönlendir
   if (yol === '/login' && gercekKullanici) {
     return NextResponse.redirect(new URL('/dashboard', istek.url));
   }
 
-  // Login dışındaki korumalı sayfalara oturumsuz erişimi engelle
   if (yol !== '/login' && !gercekKullanici) {
     return NextResponse.redirect(new URL('/login', istek.url));
   }
@@ -54,11 +52,5 @@ export async function middleware(istek: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * API rotaları, static dosyalar ve favicon hariç tüm rotalar eşleşir.
-     * Server-to-server API çağrıları için API rotaları korumasız bırakılır.
-     */
-    '/((?!_next/static|_next/image|favicon.ico|api).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api).*)'],
 };
