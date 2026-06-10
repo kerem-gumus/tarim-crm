@@ -11,14 +11,10 @@ export async function POST(_istek: Request, { params }: { params: Promise<{ id: 
     const donem = await prisma.hasatDonemi.findUnique({
       where: { id },
       include: {
+        // Tüm sürgünler (aktif + kapali) — bazı sürgünler dönem kapanmadan manuel kapatılmış olabilir
         surgunler: {
-          where: { durum: 'aktif' },
-          include: {
-            hasatGirisleri: {
-              where: { aktif: { not: false } },
-              select: { tartimMiktariKg: true },
-            },
-          },
+          where: { aktif: { not: false } },
+          select: { id: true, durum: true, toplamHasatKg: true },
         },
       },
     });
@@ -31,14 +27,12 @@ export async function POST(_istek: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ hata: 'Dönem zaten kapalı' }, { status: 400 });
     }
 
-    // Tüm sürgünlerdeki toplam hasat kg'ı hesapla
-    const toplamHasatKg = donem.surgunler.reduce((toplam, surgun) => {
-      const surgunKg = surgun.hasatGirisleri.reduce(
-        (s, giris) => s + Number(giris.tartimMiktariKg),
-        0
-      );
-      return toplam + surgunKg;
-    }, 0);
+    // Tüm sürgünlerin toplamHasatKg'ını topla (aktif + zaten kapali)
+    // toplamHasatKg alanı her hasat girişinde anlık olarak increment edilir — güvenilir kaynak.
+    const toplamHasatKg = donem.surgunler.reduce(
+      (s, surgun) => s + Number(surgun.toplamHasatKg ?? 0),
+      0
+    );
 
     // Destekleme alacağını hesapla (sadece desteklemeMiktari girildiyse)
     const desteklemeMiktari = donem.desteklemeMiktari ? Number(donem.desteklemeMiktari) : null;
@@ -47,14 +41,22 @@ export async function POST(_istek: Request, { params }: { params: Promise<{ id: 
         ? toplamHasatKg * desteklemeMiktari
         : null;
 
-    const aktifSurgunIds = donem.surgunler.map((s) => s.id);
+    // Sadece hâlâ aktif olan sürgünleri kapat
+    const aktifSurgunIds = donem.surgunler
+      .filter((s) => s.durum === 'aktif')
+      .map((s) => s.id);
+
     const audit = await auditGuncelle();
 
     await prisma.$transaction([
-      prisma.surgun.updateMany({
-        where: { id: { in: aktifSurgunIds } },
-        data: { durum: 'kapali', bitisTarihi: bugun, ...audit },
-      }),
+      ...(aktifSurgunIds.length > 0
+        ? [
+            prisma.surgun.updateMany({
+              where: { id: { in: aktifSurgunIds } },
+              data: { durum: 'kapali', bitisTarihi: bugun, ...audit },
+            }),
+          ]
+        : []),
       prisma.hasatDonemi.update({
         where: { id },
         data: {
@@ -85,16 +87,12 @@ export async function POST(_istek: Request, { params }: { params: Promise<{ id: 
       modul: 'hasat',
       tablo: 'hasat_donemleri',
       kayitId: id,
-      yeniDeger: {
-        durum: 'kapali',
-        bitisTarihi: bugun,
-        toplamHasatKg,
-        desteklemeAlacakTutar,
-      },
+      yeniDeger: { durum: 'kapali', bitisTarihi: bugun, toplamHasatKg, desteklemeAlacakTutar },
     }).catch(console.error);
 
     return NextResponse.json(kapatilmisDonem);
-  } catch {
+  } catch (err) {
+    console.error('[donem kapat]', err);
     return NextResponse.json({ hata: 'Dönem kapatılamadı' }, { status: 500 });
   }
 }

@@ -171,12 +171,18 @@ export default function KullanicilarSayfasi() {
           <h2 className="text-xl font-bold text-gray-800">Kullanıcı Yönetimi</h2>
           <p className="mt-1 text-sm text-gray-500">Sisteme erişim yetkisi olan kullanıcıları yönetin</p>
         </div>
-        <button
-          onClick={() => setYeniFormAcik(true)}
-          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition"
-        >
-          + Yeni Kullanıcı
-        </button>
+        <div className="flex items-center gap-2">
+          <a href="/kullanicilar/roller"
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            Rol Yönetimi
+          </a>
+          <button
+            onClick={() => setYeniFormAcik(true)}
+            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition"
+          >
+            + Yeni Kullanıcı
+          </button>
+        </div>
       </div>
 
       {hata && (

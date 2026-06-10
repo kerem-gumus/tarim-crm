@@ -121,7 +121,7 @@ export default function TarlaFormu({ seciliTarla, onKapat, onKaydet }: Props) {
         dikimYili: seciliTarla.dikimYili != null ? String(seciliTarla.dikimYili) : '',
         topraktipi: seciliTarla.topraktipi ?? '',
         sulamaDurumu: seciliTarla.sulamaDurumu,
-        ciftciId: seciliTarla.ciftciId,
+        ciftciId: seciliTarla.ciftciId ?? '',
         mulkiyetDurumu: seciliTarla.mulkiyetDurumu ?? 'sahip',
         kiraciCiftciId: seciliTarla.kiraciCiftciId ?? '',
         koordinatLat: seciliTarla.koordinatLat != null ? String(seciliTarla.koordinatLat) : '',

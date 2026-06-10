@@ -20,18 +20,21 @@ const MENU_GRUPLARI = [
   {
     baslik: 'Hasat & Satış',
     ogeler: [
-      { etiket: 'Hasat Yönetimi', yol: '/hasat', ikon: '🍃', renk: 'bg-lime-50 text-lime-700' },
+      { etiket: 'Hasat', yol: '/hasat', ikon: '🍃', renk: 'bg-lime-50 text-lime-700' },
       { etiket: 'Kontenjan', yol: '/kontenjan', ikon: '📊', renk: 'bg-yellow-50 text-yellow-700' },
       { etiket: 'Çay Kalite', yol: '/cay-kalite', ikon: '🍵', renk: 'bg-orange-50 text-orange-700' },
+      { etiket: 'Cüzdan Kull.', yol: '/cuzdan-kullanicilari', ikon: '👛', renk: 'bg-amber-50 text-amber-700' },
+      { etiket: 'Cari Hesap', yol: '/cari-hesap', ikon: '⚖️', renk: 'bg-cyan-50 text-cyan-700' },
     ],
   },
   {
     baslik: 'Raporlar & Araçlar',
     ogeler: [
       { etiket: 'Raporlar', yol: '/raporlar', ikon: '📋', renk: 'bg-purple-50 text-purple-700' },
-      { etiket: 'Sezon Karşılaştırma', yol: '/raporlar/sezon-karsilastirma', ikon: '📈', renk: 'bg-violet-50 text-violet-700' },
+      { etiket: 'Sezon', yol: '/raporlar/sezon-karsilastirma', ikon: '📈', renk: 'bg-violet-50 text-violet-700' },
+      { etiket: 'Toprak', yol: '/toprak-analiz', ikon: '🧪', renk: 'bg-stone-50 text-stone-700' },
       { etiket: 'Harita', yol: '/harita', ikon: '🗺️', renk: 'bg-sky-50 text-sky-700' },
-      { etiket: 'Hava Durumu', yol: '/hava-durumu', ikon: '🌤️', renk: 'bg-blue-50 text-blue-700' },
+      { etiket: 'Hava', yol: '/hava-durumu', ikon: '🌤️', renk: 'bg-blue-50 text-blue-700' },
       { etiket: 'AI Asistan', yol: '/asistan', ikon: '🤖', renk: 'bg-fuchsia-50 text-fuchsia-700' },
     ],
   },
@@ -39,9 +42,10 @@ const MENU_GRUPLARI = [
     baslik: 'Sistem',
     ogeler: [
       { etiket: 'Bildirimler', yol: '/bildirimler', ikon: '🔔', renk: 'bg-rose-50 text-rose-700' },
-      { etiket: 'Aktivite Logu', yol: '/aktivite-log', ikon: '📋', renk: 'bg-gray-50 text-gray-700' },
+      { etiket: 'Aktivite', yol: '/aktivite-log', ikon: '📋', renk: 'bg-gray-50 text-gray-700' },
       { etiket: 'Yedekleme', yol: '/yedekleme', ikon: '💾', renk: 'bg-slate-50 text-slate-700' },
       { etiket: 'Kullanıcılar', yol: '/kullanicilar', ikon: '👤', renk: 'bg-zinc-50 text-zinc-700' },
+      { etiket: 'Roller', yol: '/kullanicilar/roller', ikon: '🔐', renk: 'bg-neutral-50 text-neutral-700' },
     ],
   },
 ];

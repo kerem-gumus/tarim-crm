@@ -20,6 +20,7 @@ const menuGruplari = [
     ogeler: [
       { etiket: 'Hava Durumu', yol: '/hava-durumu', ikon: '🌤️' },
       { etiket: 'Çay Kalite', yol: '/cay-kalite', ikon: '🍵' },
+      { etiket: 'Toprak Analizi', yol: '/toprak-analiz', ikon: '🧪' },
     ],
   },
   {
@@ -27,12 +28,14 @@ const menuGruplari = [
     ogeler: [
       { etiket: 'Hasat Yönetimi', yol: '/hasat', ikon: '🍃' },
       { etiket: 'Kontenjan', yol: '/kontenjan', ikon: '📊' },
+      { etiket: 'Cüzdan Kull.', yol: '/cuzdan-kullanicilari', ikon: '👛' },
     ],
   },
   {
     baslik: 'Finans',
     ogeler: [
       { etiket: 'Finans', yol: '/finans', ikon: '💰' },
+      { etiket: 'Cari Hesap', yol: '/cari-hesap', ikon: '⚖️' },
       { etiket: 'Banka / Kasa', yol: '/banka-kasa', ikon: '🏦' },
       { etiket: 'Envanter', yol: '/envanter', ikon: '📦' },
     ],
@@ -56,6 +59,7 @@ const menuGruplari = [
     ogeler: [
       { etiket: 'Profilim', yol: '/profil', ikon: '🙋' },
       { etiket: 'Kullanıcılar', yol: '/kullanicilar', ikon: '👤' },
+      { etiket: 'Rol Yönetimi', yol: '/kullanicilar/roller', ikon: '🔐' },
       { etiket: 'Aktivite Logu', yol: '/aktivite-log', ikon: '📋' },
       { etiket: 'Yedekleme', yol: '/yedekleme', ikon: '💾' },
       { etiket: 'Bildirimler', yol: '/bildirimler', ikon: '🔔' },

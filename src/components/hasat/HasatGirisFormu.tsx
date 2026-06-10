@@ -34,6 +34,13 @@ type AktifKontenjan = {
   sonTakipTarih: string | null;
 };
 
+type CuzdanKullanici = {
+  id: string;
+  ad: string;
+  telefon?: string | null;
+  netKg: number;
+};
+
 type FormVerisi = {
   tarih: string;
   tarlaId: string;
@@ -49,7 +56,11 @@ type FormVerisi = {
   satisKgFiyati: string;
   odemeSekli: 'pesin' | 'vadeli' | '';
   odemeTarihi: string;
+  aciklama: string;
   notlar: string;
+  // Cüzdan kullandırma
+  cuzdanKullaniciId: string; // '' = "kendim"
+  satisBenimMi: boolean;    // true=Senaryo1, false=Senaryo2
 };
 
 type Props = {
@@ -63,6 +74,23 @@ const bugunStr = () => new Date().toISOString().split('T')[0];
 
 function sayiFormat(n: number) {
   return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Türkçe sayı formatını JS ondalığına çevirir.
+// "1.184,5" → 1184.5  |  "1184,5" → 1184.5  |  "1184.5" → 1184.5
+function turkceDecimale(str: string): number {
+  if (!str) return 0;
+  const s = str.trim();
+  // Hem virgül hem nokta içeriyorsa: nokta=binlik, virgül=ondalık
+  if (s.includes(',') && s.includes('.')) {
+    return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+  // Sadece virgül: virgül=ondalık (Türkçe)
+  if (s.includes(',')) {
+    return parseFloat(s.replace(',', '.')) || 0;
+  }
+  // Sadece nokta: nokta=ondalık (standart)
+  return parseFloat(s) || 0;
 }
 
 export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet }: Props) {
@@ -81,12 +109,16 @@ export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet 
     satisKgFiyati: '',
     odemeSekli: '',
     odemeTarihi: '',
+    aciklama: '',
     notlar: '',
+    cuzdanKullaniciId: '',
+    satisBenimMi: true,
   });
 
   const [tarlalar, setTarlalar] = useState<Tarla[]>([]);
   const [ekipler, setEkipler] = useState<Ekip[]>([]);
   const [musteriler, setMusteriler] = useState<Musteri[]>([]);
+  const [cuzdanKullanicilari, setCuzdanKullanicilari] = useState<CuzdanKullanici[]>([]);
   const [aktifKontenjan, setAktifKontenjan] = useState<AktifKontenjan | null>(null);
   const [kontenjanYukleniyor, setKontenjanYukleniyor] = useState(false);
   const [yukleniyor, setYukleniyor] = useState(false);
@@ -101,14 +133,17 @@ export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet 
           fetch('/api/ekipler'),
           fetch('/api/musteriler'),
         ]);
-        const [tarlalarVerisi, ekiplerVerisi, musterilerVerisi] = await Promise.all([
+        const cuzdanYanit = await fetch('/api/cuzdan-kullanicilari?aktifSadece=true');
+        const [tarlalarVerisi, ekiplerVerisi, musterilerVerisi, cuzdanVerisi] = await Promise.all([
           tarlalarYanit.json(),
           ekiplerYanit.json(),
           musterilerYanit.json(),
+          cuzdanYanit.json(),
         ]);
         setTarlalar(Array.isArray(tarlalarVerisi) ? tarlalarVerisi : []);
         setEkipler(Array.isArray(ekiplerVerisi) ? ekiplerVerisi : []);
         setMusteriler(Array.isArray(musterilerVerisi) ? musterilerVerisi : []);
+        setCuzdanKullanicilari(Array.isArray(cuzdanVerisi) ? cuzdanVerisi : []);
       } catch {
         setHata('Veriler yüklenemedi');
       } finally {
@@ -196,16 +231,16 @@ export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet 
     return { tartim, oncekiBakiye, etkiliTartim, gunlukKg, satisKg, yeniBakiye };
   })();
 
-  // İşçilik tutarı önizlemesi
+  // İşçilik tutarı önizlemesi — Türkçe sayı formatı desteklenir (ör. "1.184,5" = 1184.5)
   const iscilikOnizleme = (() => {
     if (form.toplanmaTuru !== 'isci' || !form.isciEkipId || !form.odemeTuru) return null;
     const tartim = Number(form.tartimMiktariKg) || 0;
     if (form.odemeTuru === 'ton_isi' && form.tonFiyati && tartim > 0) {
-      return (tartim / 1000) * Number(form.tonFiyati);
+      return (tartim / 1000) * turkceDecimale(form.tonFiyati);
     }
-    if (form.odemeTuru === 'yevmiye' && form.yevmiyeFiyati && form.isciEkipId) {
-      const seciliEkip = ekipler.find((e) => e.id === form.isciEkipId);
-      if (seciliEkip) return Number(form.yevmiyeFiyati) * seciliEkip.uyeler.length;
+    if (form.odemeTuru === 'yevmiye' && form.yevmiyeFiyati && tartim > 0) {
+      // Yevmiye: TL/kg × toplam kg
+      return turkceDecimale(form.yevmiyeFiyati) * tartim;
     }
     return null;
   })();
@@ -257,7 +292,11 @@ export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet 
           : Number(form.satisMiktariKg || form.tartimMiktariKg),
         toplanmaTuru: form.toplanmaTuru,
         musteriId: form.musteriId,
+        aciklama: form.aciklama.trim() || null,
         notlar: form.notlar || null,
+        // Cüzdan kullandırma
+        cuzdanKullaniciId: form.cuzdanKullaniciId || null,
+        satisBenimMi: form.cuzdanKullaniciId ? form.satisBenimMi : null,
       };
 
       // Kontenjan bilgisi (bakiye hesabı için)
@@ -270,8 +309,9 @@ export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet 
       if (form.toplanmaTuru === 'isci') {
         govde.isciEkipId = form.isciEkipId || null;
         govde.odemeTuru = form.odemeTuru || null;
-        if (form.odemeTuru === 'ton_isi') govde.tonFiyati = Number(form.tonFiyati);
-        if (form.odemeTuru === 'yevmiye') govde.yevmiyeFiyati = Number(form.yevmiyeFiyati);
+        // turkceDecimale: "1.184,5" → 1184.5  (Türkçe binlik/ondalık formatı)
+        if (form.odemeTuru === 'ton_isi') govde.tonFiyati = turkceDecimale(form.tonFiyati);
+        if (form.odemeTuru === 'yevmiye') govde.yevmiyeFiyati = turkceDecimale(form.yevmiyeFiyati);
       }
 
       if (!musteriDevletMi && form.fiyatTuru) {
@@ -330,6 +370,76 @@ export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet 
         <form onSubmit={kaydet} className="space-y-5 px-6 py-5">
           {hata && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{hata}</div>
+          )}
+
+          {/* Cüzdan Kullandırma Bölümü */}
+          {cuzdanKullanicilari.length > 0 && (
+            <fieldset className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <legend className="text-xs font-semibold uppercase tracking-wider text-amber-700 px-1">
+                Cüzdan Kullandırma
+              </legend>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Bu satış kime ait?
+                </label>
+                <select
+                  value={form.cuzdanKullaniciId}
+                  onChange={(e) => setForm((p) => ({ ...p, cuzdanKullaniciId: e.target.value, satisBenimMi: true }))}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                >
+                  <option value="">Benim (normal hasat)</option>
+                  {cuzdanKullanicilari.map((k) => (
+                    <option key={k.id} value={k.id}>
+                      {k.ad}
+                      {k.netKg !== 0 ? ` — net: ${k.netKg > 0 ? `+${k.netKg.toFixed(0)} kg alacak` : `${k.netKg.toFixed(0)} kg borç`}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {form.cuzdanKullaniciId && (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Satışı kim yaptı?
+                  </label>
+                  <div className="flex gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={form.satisBenimMi === true}
+                        onChange={() => setForm((p) => ({ ...p, satisBenimMi: true }))}
+                        className="text-amber-600"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Ben yaptım
+                        <span className="text-xs text-gray-500 block">
+                          kg bana işlenir, {cuzdanKullanicilari.find(k => k.id === form.cuzdanKullaniciId)?.ad} bana borçlu
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={form.satisBenimMi === false}
+                        onChange={() => setForm((p) => ({ ...p, satisBenimMi: false }))}
+                        className="text-amber-600"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        {cuzdanKullanicilari.find(k => k.id === form.cuzdanKullaniciId)?.ad} yaptı
+                        <span className="text-xs text-gray-500 block">
+                          kg bana işlenmez, ben ona borçlu
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                  {form.satisBenimMi === false && (
+                    <div className="mt-2 rounded-lg bg-orange-100 border border-orange-200 px-3 py-2 text-xs text-orange-800">
+                      Bu kg sürgün/tarla/işçilik toplamına işlenmeyecek. Sadece cari borç kaydı oluşur.
+                    </div>
+                  )}
+                </div>
+              )}
+            </fieldset>
           )}
 
           {/* Temel Bilgiler */}
@@ -699,18 +809,26 @@ export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet 
                 {form.odemeTuru === 'yevmiye' && (
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Yevmiye Fiyatı (₺/kişi) <span className="text-red-500">*</span>
+                      Yevmiye Fiyatı (₺/kg) <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={form.yevmiyeFiyati}
                       onChange={(e) => guncelle('yevmiyeFiyati', e.target.value)}
                       required={form.odemeTuru === 'yevmiye'}
-                      min={0} step={0.01} placeholder="0.00"
+                      placeholder="örn: 11,50 veya 11.50"
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
                     />
-                    {form.isciEkipId && (
-                      <p className="mt-1 text-xs text-gray-500">Ekipte {uyeSayisi} aktif üye var</p>
+                    {form.tartimMiktariKg && form.yevmiyeFiyati && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {Number(form.tartimMiktariKg) > 0 && turkceDecimale(form.yevmiyeFiyati) > 0 && (
+                          <span className="font-medium text-green-700">
+                            {Number(form.tartimMiktariKg).toLocaleString('tr-TR')} kg × ₺{turkceDecimale(form.yevmiyeFiyati).toLocaleString('tr-TR')}
+                            {' = '}₺{(turkceDecimale(form.yevmiyeFiyati) * Number(form.tartimMiktariKg)).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </p>
                     )}
                   </div>
                 )}
@@ -721,11 +839,12 @@ export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet 
                       Ton Fiyatı (₺/ton) <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={form.tonFiyati}
                       onChange={(e) => guncelle('tonFiyati', e.target.value)}
                       required={form.odemeTuru === 'ton_isi'}
-                      min={0} step={0.01} placeholder="0.00"
+                      placeholder="örn: 11.500 veya 11500"
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
                     />
                   </div>
@@ -742,6 +861,21 @@ export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet 
               </div>
             )}
           </fieldset>
+
+          {/* Açıklama (listede görünür) */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Açıklama
+              <span className="ml-1 text-xs text-gray-400">(listede görünür)</span>
+            </label>
+            <input
+              type="text"
+              value={form.aciklama}
+              onChange={(e) => guncelle('aciklama', e.target.value)}
+              placeholder="Kısa açıklama..."
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+            />
+          </div>
 
           {/* Notlar */}
           <div>

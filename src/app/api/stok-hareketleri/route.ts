@@ -50,6 +50,7 @@ export async function POST(istek: Request) {
       tedarikci,
       faturaNo,
       tarih,
+      bankaHesabiId, // giriş ve iade için banka seçimi
       notlar,
     } = await istek.json();
 
@@ -67,63 +68,108 @@ export async function POST(istek: Request) {
 
     const mevcutStok = Number(malzeme.mevcutStok);
     const miktarSayi = Number(miktar);
+    const tutarSayi = toplamTutar ? Number(toplamTutar) : null;
+    const birimFiyatSayi = birimFiyat ? Number(birimFiyat) : null;
+    const tarihDate = new Date(tarih);
 
     // Stok hesaplama
     let yeniStok: number;
     if (hareketTipi === 'giris' || hareketTipi === 'iade') {
       yeniStok = mevcutStok + miktarSayi;
     } else {
-      // cikis veya fire
       if (mevcutStok < miktarSayi) {
         return NextResponse.json(
-          { hata: 'Mevcut stok miktarı yetersiz' },
+          { hata: `Mevcut stok yetersiz (${mevcutStok} ${malzeme.birim})` },
           { status: 400 }
         );
       }
       yeniStok = mevcutStok - miktarSayi;
     }
 
+    // Banka hesabı doğrula
+    if (bankaHesabiId) {
+      const bankaHesabi = await prisma.bankaHesabi.findUnique({ where: { id: bankaHesabiId } });
+      if (!bankaHesabi) {
+        return NextResponse.json({ hata: 'Banka hesabı bulunamadı' }, { status: 404 });
+      }
+    }
+
     const audit = await auditOlustur();
 
-    // Atomik transaction
-    const [yeniHareket] = await prisma.$transaction(async (tx) => {
+    const yeniHareket = await prisma.$transaction(async (tx) => {
       const hareket = await tx.stokHareketi.create({
         data: {
           malzemeId,
           hareketTipi,
           miktar,
-          birimFiyat: birimFiyat || null,
-          toplamTutar: toplamTutar || null,
+          birimFiyat: birimFiyatSayi,
+          toplamTutar: tutarSayi,
           tarlaId: tarlaId || null,
           tedarikci: tedarikci || null,
           faturaNo: faturaNo || null,
-          tarih: new Date(tarih),
+          tarih: tarihDate,
           notlar: notlar || null,
           ...audit,
         },
         include: { malzeme: true },
       });
 
+      // Malzeme stoğunu güncelle
       await tx.malzeme.update({
         where: { id: malzemeId },
-        data: { mevcutStok: yeniStok },
+        data: {
+          mevcutStok: yeniStok,
+          // Giriş kaydında birim fiyat güncel olarak saklanır
+          ...(hareketTipi === 'giris' && birimFiyatSayi && birimFiyatSayi > 0
+            ? { birimFiyat: birimFiyatSayi }
+            : {}),
+        },
       });
 
       // Çıkış + tutar varsa ödeme kaydı oluştur
-      if (hareketTipi === 'cikis' && toplamTutar && Number(toplamTutar) > 0) {
-        const tarihStr = new Date(tarih).toLocaleDateString('tr-TR');
+      if (hareketTipi === 'cikis' && tutarSayi && tutarSayi > 0) {
+        const tarihStr = tarihDate.toLocaleDateString('tr-TR');
         await tx.odemeKaydi.create({
           data: {
             kategori: 'malzeme',
             aciklama: `${malzeme.malzemeAdi} - ${tarihStr} kullanımı`,
-            tutar: toplamTutar,
+            tutar: tutarSayi,
             odemeDurumu: 'odeme_bekleniyor',
             odenenTutar: 0,
           },
         });
       }
 
-      return [hareket];
+      // Banka hareketi — giriş: para çıkışı / iade: para girişi
+      if (bankaHesabiId && tutarSayi && tutarSayi > 0) {
+        const bankaTip = hareketTipi === 'iade' ? 'giris' : 'cikis';
+        const bankaAciklama =
+          hareketTipi === 'iade'
+            ? `${malzeme.malzemeAdi} iade geliri`
+            : `${malzeme.malzemeAdi} alımı`;
+
+        const bankaYon = hareketTipi === 'iade' ? 1 : -1;
+
+        await tx.bankaHareketi.create({
+          data: {
+            bankaHesabiId,
+            tip: bankaTip,
+            tutar: tutarSayi,
+            aciklama: bankaAciklama,
+            tarih: tarihDate,
+            referansTipi: `stok_${hareketTipi}`,
+            referansId: hareket.id,
+            ...audit,
+          },
+        });
+
+        await tx.bankaHesabi.update({
+          where: { id: bankaHesabiId },
+          data: { bakiye: { increment: bankaYon * tutarSayi } },
+        });
+      }
+
+      return hareket;
     });
 
     logKaydet({
@@ -150,12 +196,11 @@ export async function POST(istek: Request) {
       },
     };
 
-    if (uyariVar) {
-      yanit.uyari = 'Minimum stok seviyesine ulaşıldı';
-    }
+    if (uyariVar) yanit.uyari = 'Minimum stok seviyesine ulaşıldı';
 
     return NextResponse.json(yanit, { status: 201 });
-  } catch {
+  } catch (err) {
+    console.error('[stok-hareketleri POST]', err);
     return NextResponse.json({ hata: 'Stok hareketi kaydedilemedi' }, { status: 500 });
   }
 }

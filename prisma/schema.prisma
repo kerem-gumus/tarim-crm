@@ -200,6 +200,10 @@ model HasatGirisi {
   odemeSekli          OdemeSekli? @map("odeme_sekli")                            // pesin veya vadeli
   odemeTarihi         DateTime? @map("odeme_tarihi") @db.Date                    // peşin: ödeme günü, vadeli: vade tarihi
   kontenjanId         String?  @map("kontenjan_id")          // Kontenjan modunda dolu
+  aciklama            String?                                // Özellik #B: listede gösterilir
+  // Cüzdan kullandırma alanları (null = "kendim")
+  cuzdanKullaniciId   String?  @map("cuzdan_kullanici_id")   // Kimin adına yapıldı
+  satisBenimMi        Boolean? @map("satis_benim_mi")        // true=Senaryo1 ben yaptım, false=Senaryo2 o yaptı
   notlar              String?
   olusturmaTarihi     DateTime @default(now()) @map("olusturma_tarihi")
   olusturanId         String?  @map("olusturan_id")
@@ -214,8 +218,10 @@ model HasatGirisi {
   isciEkip            IsciEkibi? @relation(fields: [isciEkipId], references: [id])
   musteri             Musteri   @relation(fields: [musteriId], references: [id])
   kontenjan           Kontenjan? @relation(fields: [kontenjanId], references: [id])
+  cuzdanKullanici     CuzdanKullanicisi? @relation(fields: [cuzdanKullaniciId], references: [id])
   cayKalite           CayKalite[]
   kontenjanTakip      KontenjanGunlukTakip[]
+  cariHareketler      CariHareket[]
 
   @@map("hasat_girisleri")
 }
@@ -315,6 +321,7 @@ model Tarla {
   hasatGirisleri   HasatGirisi[]
   havaVerileri     HavaVerisi[]
   cayKalite        CayKalite[]
+  toprakNumuneler  ToprakNumune[]
 
   @@map("tarlalar")
 }
@@ -1024,6 +1031,7 @@ model Kullanici {
   telefon          String?
   profilFotoUrl    String?       @map("profil_foto_url")
   rol              KullaniciRol  @default(izleyici)
+  rolId            String?       @map("rol_id")       // RBAC: özel rol (null = sadece KullaniciRol kullanılır)
   durum            AktifPasif    @default(aktif)
   sonGiris         DateTime?     @map("son_giris")
   olusturmaTarihi  DateTime      @default(now()) @map("olusturma_tarihi")
@@ -1033,6 +1041,8 @@ model Kullanici {
   guncelleyenAdi   String?       @map("guncelleyen_adi")
   guncellemeTarihi DateTime?     @map("guncelleme_tarihi")
   aktif            Boolean       @default(true)
+
+  rbacRol          RbacRol?      @relation(fields: [rolId], references: [id])
 
   @@map("kullanicilar")
 }
@@ -1115,4 +1125,146 @@ enum MesajRol {
   kullanici
   asistan
   sistem
+}
+
+// =====================================================
+// MODUL - CUZDAN KULLANDIRMA & CARI HESAP
+// =====================================================
+
+enum CuzdanKullaniciDurum {
+  aktif
+  pasif
+}
+
+enum CariYon {
+  bana_borclu    // Senaryo 1: o bana borçlu (alacak)
+  ben_borcluyum  // Senaryo 2: ben ona borçluyum (borç)
+}
+
+enum CariIslemTipi {
+  satis_kaynakli  // hasat girişinden doğan cari hareket
+  odesme          // karşı tarafa çay satarak kapatma
+}
+
+model CuzdanKullanicisi {
+  id                String                @id @default(cuid())
+  ad                String
+  telefon           String?
+  durum             CuzdanKullaniciDurum  @default(aktif)
+  ciftciId          String?               @map("ciftci_id")       // opsiyonel: aynı kişi çiftçiyse
+  notlar            String?
+  olusturulmaTarihi DateTime              @default(now()) @map("olusturulma_tarihi")
+  guncellemeTarihi  DateTime?             @map("guncelleme_tarihi")
+  aktif             Boolean               @default(true)
+
+  hasatGirisleri  HasatGirisi[]
+  cariHareketler  CariHareket[]
+
+  @@map("cuzdan_kullanicilari")
+}
+
+model CariHareket {
+  id                  String            @id @default(cuid())
+  cuzdanKullaniciId   String            @map("cuzdan_kullanici_id")
+  hasatGirisiId       String?           @map("hasat_girisi_id")   // hangi hasat girişinden doğdu
+  hasatDonemiId       String?           @map("hasat_donemi_id")   // hangi dönemde
+  yon                 CariYon                                     // bana_borclu | ben_borcluyum
+  islemTipi           CariIslemTipi     @map("islem_tipi")        // satis_kaynakli | odesme
+  miktarKg            Decimal           @map("miktar_kg") @db.Decimal(10, 2)
+  komisyonTl          Decimal?          @map("komisyon_tl") @db.Decimal(10, 2)
+  aciklama            String?
+  tarih               DateTime          @default(now())
+  aktif               Boolean           @default(true)
+  olusturulmaTarihi   DateTime          @default(now()) @map("olusturulma_tarihi")
+
+  cuzdanKullanici   CuzdanKullanicisi   @relation(fields: [cuzdanKullaniciId], references: [id])
+  hasatGirisi       HasatGirisi?        @relation(fields: [hasatGirisiId], references: [id])
+
+  @@map("cari_hareketler")
+}
+
+// =====================================================
+// MODUL - RBAC (Rol Tabanlı Yetkilendirme)
+// =====================================================
+
+model RbacRol {
+  id          String       @id @default(cuid())
+  ad          String       @unique
+  aciklama    String?
+  aktif       Boolean      @default(true)
+  olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi")
+
+  yetkiler     RbacRolYetki[]
+  kullanicilar Kullanici[]
+
+  @@map("rbac_roller")
+}
+
+model RbacYetki {
+  id        String   @id @default(cuid())
+  anahtar   String   @unique    // örn: "ciftci.ekle", "banka.goruntule", "sayfa.finans"
+  aciklama  String
+  kategori  String              // "sayfa" | "islem" | "banka" | "ozel"
+
+  roller    RbacRolYetki[]
+
+  @@map("rbac_yetkiler")
+}
+
+model RbacRolYetki {
+  rolId    String    @map("rol_id")
+  yetkiId  String    @map("yetki_id")
+
+  rol      RbacRol   @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  yetki    RbacYetki @relation(fields: [yetkiId], references: [id], onDelete: Cascade)
+
+  @@id([rolId, yetkiId])
+  @@map("rbac_rol_yetkiler")
+}
+
+// =====================================================
+// MODUL 22 - TOPRAK ANALIZ
+// =====================================================
+
+enum NumuneDurum {
+  beklemede
+  sonuclandi
+}
+
+model ToprakNumune {
+  id              String       @id @default(cuid())
+  tarlaId         String       @map("tarla_id")
+  yil             Int
+  numuneNo        Int          @map("numune_no")      // 1, 2, 3 (her tarlada 3 numune)
+  barkod          String       @unique
+  alinmaTarihi    DateTime     @map("alinma_tarihi") @db.Date
+  durum           NumuneDurum  @default(beklemede)
+  notlar          String?
+  olusturulmaTarihi DateTime   @default(now()) @map("olusturulma_tarihi")
+  aktif           Boolean      @default(true)
+
+  tarla           Tarla        @relation(fields: [tarlaId], references: [id])
+  sonuc           ToprakAnaliz?
+
+  @@map("toprak_numuneler")
+}
+
+model ToprakAnaliz {
+  id              String    @id @default(cuid())
+  numuneId        String    @unique @map("numune_id")
+  ph              Decimal?  @db.Decimal(4, 2)
+  organikMadde    Decimal?  @map("organik_madde") @db.Decimal(5, 2)   // %
+  azot            Decimal?  @map("azot") @db.Decimal(6, 3)             // N (mg/kg)
+  fosfor          Decimal?  @map("fosfor") @db.Decimal(6, 3)           // P (mg/kg)
+  potasyum        Decimal?  @map("potasyum") @db.Decimal(6, 3)         // K (mg/kg)
+  kalsiyum        Decimal?  @map("kalsiyum") @db.Decimal(6, 3)
+  magnezyum       Decimal?  @map("magnezyum") @db.Decimal(6, 3)
+  aiAnaliz        String?   @map("ai_analiz") @db.Text
+  aiOneriler      String?   @map("ai_oneriler") @db.Text
+  sonucTarihi     DateTime  @map("sonuc_tarihi") @db.Date
+  olusturulmaTarihi DateTime @default(now()) @map("olusturulma_tarihi")
+
+  numune          ToprakNumune @relation(fields: [numuneId], references: [id])
+
+  @@map("toprak_analizler")
 }

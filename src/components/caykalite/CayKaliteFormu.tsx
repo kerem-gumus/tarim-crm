@@ -43,6 +43,10 @@ export default function CayKaliteFormu({ seciliKayit, onKapat, onKaydet }: Props
   const [kaydediliyor, setKaydediliyor] = useState(false)
   const [hata, setHata] = useState('')
 
+  // AI foto analizi
+  const [fotoAnalizi, setFotoAnalizi] = useState(false)
+  const [fotoAciklama, setFotoAciklama] = useState('')
+
   const [tarih, setTarih] = useState(new Date().toISOString().split('T')[0])
   const [tarlaId, setTarlaId] = useState('')
   const [toplamaYontemi, setToplamaYontemi] = useState('elle')
@@ -94,6 +98,30 @@ export default function CayKaliteFormu({ seciliKayit, onKapat, onKaydet }: Props
     }
   }, [seciliKayit])
 
+  async function fotoAnaliz(e: React.ChangeEvent<HTMLInputElement>) {
+    const dosya = e.target.files?.[0]
+    if (!dosya) return
+    setFotoAnalizi(true)
+    setFotoAciklama('')
+    setHata('')
+    try {
+      const fd = new FormData()
+      fd.append('foto', dosya)
+      const yanit = await fetch('/api/cay-kalite/ai-analiz', { method: 'POST', body: fd })
+      const veri = await yanit.json()
+      if (!yanit.ok) { setHata(veri.hata ?? 'AI analiz başarısız'); return }
+      const { oneri, aciklama } = veri
+      if (oneri.yaprakNotu) setYaprakNotu(oneri.yaprakNotu)
+      if (oneri.genelNot) setGenelNot(oneri.genelNot)
+      if (oneri.renk) setRenk(oneri.renk)
+      if (oneri.koku) setKoku(oneri.koku)
+      if (oneri.fizikselHata != null) setFizikselHata(String(oneri.fizikselHata))
+      if (oneri.nemOrani != null) setNemOrani(String(oneri.nemOrani))
+      setFotoAciklama(aciklama ?? '')
+    } catch { setHata('Fotoğraf analiz hatası') }
+    finally { setFotoAnalizi(false) }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setHata('')
@@ -143,6 +171,36 @@ export default function CayKaliteFormu({ seciliKayit, onKapat, onKaydet }: Props
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {hata && (
             <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">{hata}</div>
+          )}
+
+          {/* AI Fotoğraf Analizi */}
+          {!seciliKayit && (
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4 space-y-2">
+              <p className="text-xs font-semibold text-green-800 uppercase tracking-wide">
+                🤖 AI Fotoğraf Analizi (Opsiyonel)
+              </p>
+              <p className="text-xs text-green-700">
+                Çay yaprağı fotoğrafı yükleyin — AI formu otomatik doldurmaya çalışır.
+              </p>
+              <div className="flex items-center gap-3">
+                <label className="relative cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="absolute inset-0 opacity-0 w-full cursor-pointer"
+                    onChange={fotoAnaliz}
+                    disabled={fotoAnalizi}
+                  />
+                  <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border ${fotoAnalizi ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-white text-green-700 border-green-300 hover:bg-green-50'}`}>
+                    {fotoAnalizi ? '⏳ Analiz ediliyor...' : '📷 Fotoğraf Seç / Çek'}
+                  </span>
+                </label>
+                {fotoAciklama && (
+                  <p className="text-xs text-green-700 flex-1">{fotoAciklama}</p>
+                )}
+              </div>
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-4">

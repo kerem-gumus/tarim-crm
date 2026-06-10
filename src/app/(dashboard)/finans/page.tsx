@@ -640,7 +640,7 @@ function AlacaklarSekmesi({
 
   function toggle(set: Set<string>, setSet: (s: Set<string>) => void, key: string) {
     const yeni = new Set(set);
-    yeni.has(key) ? yeni.delete(key) : yeni.add(key);
+    if (yeni.has(key)) { yeni.delete(key) } else { yeni.add(key) }
     setSet(yeni);
   }
 
@@ -962,7 +962,7 @@ export default function FinansSayfasi() {
   function borcSecToggle(id: string) {
     setSeciliBorcIds((prev) => {
       const yeni = new Set(prev);
-      yeni.has(id) ? yeni.delete(id) : yeni.add(id);
+      if (yeni.has(id)) { yeni.delete(id) } else { yeni.add(id) }
       return yeni;
     });
   }

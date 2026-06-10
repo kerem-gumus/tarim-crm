@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
 // =====================================================
-// Dekont dosyası yükleme
+// Dekont dosyası yükleme — Supabase Storage (fotograflar bucket)
 // POST /api/dekont-yukle  (multipart/form-data, alan adı: "dosya")
-// Response: { url: string, dosyaAdi: string }
+// Response: { url: string, dosyaYolu: string, dosyaAdi: string }
 // Desteklenen: PDF, JPG, JPEG, PNG — maks 10 MB
 // =====================================================
 
 const IZINLI_UZANTILAR = ['pdf', 'jpg', 'jpeg', 'png'];
 const MAKS_BOYUT = 10 * 1024 * 1024; // 10 MB
+const BUCKET = 'fotograflar';
+
+function supabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 export async function POST(istek: NextRequest) {
   try {
@@ -31,22 +39,37 @@ export async function POST(istek: NextRequest) {
     }
 
     if (dosya.size > MAKS_BOYUT) {
-      return NextResponse.json({ hata: 'Dosya boyutu 10 MB\'yi geçemez' }, { status: 400 });
+      return NextResponse.json({ hata: "Dosya boyutu 10 MB'yi geçemez" }, { status: 400 });
     }
 
     const benzersizAd = `${randomUUID()}.${ext}`;
-    const klasor = join(process.cwd(), 'public', 'uploads', 'dekontlar');
+    const depoYolu = `dekontlar/${benzersizAd}`;
 
-    await mkdir(klasor, { recursive: true });
     const bytes = await dosya.arrayBuffer();
-    await writeFile(join(klasor, benzersizAd), Buffer.from(bytes));
+    const supabase = supabaseAdmin();
+
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(depoYolu, Buffer.from(bytes), {
+        contentType: dosya.type || 'application/octet-stream',
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) {
+      console.error('[dekont-yukle] Storage hatası:', error);
+      return NextResponse.json({ hata: 'Dosya yüklenemedi: ' + error.message }, { status: 500 });
+    }
+
+    const { data: pubData } = supabase.storage.from(BUCKET).getPublicUrl(depoYolu);
 
     return NextResponse.json({
-      url: `/uploads/dekontlar/${benzersizAd}`,
+      url: pubData.publicUrl,
+      dosyaYolu: depoYolu,
       dosyaAdi: dosya.name,
     });
   } catch (err) {
-    console.error(err);
+    console.error('[dekont-yukle]', err);
     return NextResponse.json({ hata: 'Dosya yüklenemedi' }, { status: 500 });
   }
 }

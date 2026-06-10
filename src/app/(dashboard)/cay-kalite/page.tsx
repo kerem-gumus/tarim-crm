@@ -5,6 +5,7 @@ import {
   ScatterChart, Scatter, ZAxis,
 } from 'recharts'
 import CayKaliteFormu from '@/components/caykalite/CayKaliteFormu'
+import AiRaporBolumu from '@/components/rapor/AiRaporBolumu'
 
 interface CayKalite {
   id: string
@@ -314,6 +315,15 @@ export default function CayKaliteSayfasi() {
                     </ScatterChart>
                   </ResponsiveContainer>
                 </div>
+              )}
+              {/* AI Kalite Analizi */}
+              {grafik.length >= 2 && (
+                <AiRaporBolumu
+                  tip="hasat"
+                  veri={{ kayitlar: grafik, ortalamalar, korelasyon }}
+                  ekBaglam="Çay kalite kaydı analizi — yaprak notu, genel not, hava-kalite korelasyonu"
+                  baslik="Çay Kalite AI Analizi"
+                />
               )}
             </>
           )}

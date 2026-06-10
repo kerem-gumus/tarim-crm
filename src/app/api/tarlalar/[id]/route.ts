@@ -66,7 +66,8 @@ export async function PUT(istek: Request, { params }: { params: Promise<{ id: st
     });
     logKaydet({ islemTipi: 'guncelleme', modul: 'tarla', tablo: 'tarlalar', kayitId: id, eskiDeger: eskiTarla, yeniDeger: guncellendi }).catch(console.error);
     return NextResponse.json(guncellendi);
-  } catch {
+  } catch (err) {
+    console.error('[tarla PUT]', err);
     return NextResponse.json({ hata: 'Tarla güncellenemedi' }, { status: 500 });
   }
 }

@@ -28,6 +28,10 @@ const sayfaBasliklari: Record<string, string> = {
   '/aktivite-log': 'Aktivite Logu',
   '/ekipler': 'Ekipler',
   '/profil': 'Profilim',
+  // Yeni sayfalar
+  '/toprak-analiz': 'Toprak Analizi',
+  '/cuzdan-kullanicilari': 'Cüzdan Kullanıcıları',
+  '/cari-hesap': 'Cari Hesap',
 };
 
 export default function UstBar() {

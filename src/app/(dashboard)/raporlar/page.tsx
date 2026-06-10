@@ -5,6 +5,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts'
+import AiRaporBolumu from '@/components/rapor/AiRaporBolumu'
 
 // ── Tipler ────────────────────────────────────────────────────────────────────
 
@@ -451,6 +452,14 @@ function HasatRaporu() {
           )}
         </div>
       )}
+      {veri && (
+        <AiRaporBolumu
+          tip="hasat"
+          veri={{ toplamKg: veri.toplamKg, tarlaOzeti: veri.tarlaOzeti, ekipOzeti: veri.ekipOzeti }}
+          ekBaglam="Hasat raporu"
+          baslik="Hasat Raporu AI Analizi"
+        />
+      )}
     </div>
   )
 }
@@ -622,6 +631,13 @@ function FinansRaporu() {
             </div>
           </div>
         </div>
+      )}
+      {veri && (
+        <AiRaporBolumu
+          tip="finans"
+          veri={{ toplamGelir: veri.toplamGelir, toplamGider: veri.toplamGider, netKar: veri.netKar, giderKategoriDagilim: veri.giderKategoriDagilim }}
+          baslik="Finans Raporu AI Analizi"
+        />
       )}
     </div>
   )
@@ -822,6 +838,13 @@ function IscilikRaporu() {
           </div>
         </div>
       )}
+      {veri && (
+        <AiRaporBolumu
+          tip="iscilik"
+          veri={{ iscilikOdemeleri: veri.iscilikOdemeleri?.slice(0, 20), ekipOzeti: veri.ekipOzeti, toplamTutar: veri.toplamTutar }}
+          baslik="İşçilik Raporu AI Analizi"
+        />
+      )}
     </div>
   )
 }
@@ -1004,6 +1027,13 @@ function EnvanterRaporu() {
           </div>
         </div>
       )}
+      {veri && (
+        <AiRaporBolumu
+          tip="envanter"
+          veri={{ malzemeler: veri.malzemeler?.slice(0, 20), kritikMalzemeler: veri.kritikMalzemeler, toplamHarcama: veri.toplamHarcama }}
+          baslik="Envanter Raporu AI Analizi"
+        />
+      )}
     </div>
   )
 }
@@ -1181,6 +1211,13 @@ function AracRaporu() {
             </div>
           ))}
         </div>
+      )}
+      {veri && (
+        <AiRaporBolumu
+          tip="arac"
+          veri={{ araclar: veri.araclar?.slice(0, 5), genelGider: veri.genelGider, genelGelir: veri.genelGelir, genelKar: veri.genelKar }}
+          baslik="Araç/Ekipman Raporu AI Analizi"
+        />
       )}
     </div>
   )

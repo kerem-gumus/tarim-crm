@@ -499,6 +499,18 @@ function hareketlerUrlOlustur(params: Record<string, string | number>) {
   return `/api/banka-hareketleri?${p}`;
 }
 
+interface AktifDonemBilgi {
+  ad: string;
+  yil: number;
+  baslangic: string; // YYYY-MM-DD
+  bitis: string;     // YYYY-MM-DD (aktif dönemde = bugün)
+}
+
+function bugunYMD(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function BankaKasaSayfasi() {
   const [aktifSekme, setAktifSekme] = useState<SekmeAdi>('dashboard');
   const [hesaplar, setHesaplar] = useState<BankaHesabi[]>([]);
@@ -509,6 +521,9 @@ export default function BankaKasaSayfasi() {
   const [islemBaslangicHesapId, setIslemBaslangicHesapId] = useState<string | undefined>();
   const [sifirlaHesap, setSifirlaHesap] = useState<BankaHesabi | undefined>();
   const [dekontGoruntulenecek, setDekontGoruntulenecek] = useState<string | null>(null);
+
+  // ── Aktif hasat dönemi ──
+  const [aktifDonem, setAktifDonem] = useState<AktifDonemBilgi | null>(null);
 
   // ── Dashboard "Son Hareketler" ──
   const [dashHareketler, setDashHareketler] = useState<HareketSatir[]>([]);
@@ -591,6 +606,31 @@ export default function BankaKasaSayfasi() {
     } finally {
       setYukleniyor(false);
     }
+  }, []);
+
+  // Aktif hasat dönemini çek ve dashboard filtresini o dönemle başlat
+  useEffect(() => {
+    async function aktifDonemiGetir() {
+      try {
+        const yanit = await fetch('/api/hasat-donemleri');
+        const donemler = await yanit.json();
+        if (!Array.isArray(donemler)) return;
+        const aktif = donemler.find((d: { durum: string }) => d.durum === 'aktif');
+        if (aktif) {
+          const baslangic = aktif.baslangicTarihi
+            ? aktif.baslangicTarihi.split('T')[0]
+            : '';
+          const bitis = aktif.bitisTarihi
+            ? aktif.bitisTarihi.split('T')[0]
+            : bugunYMD();
+          setAktifDonem({ ad: aktif.donemAdi, yil: aktif.yil, baslangic, bitis });
+          // Genel Bakış sekmesi varsayılan olarak aktif dönemi gösterir
+          setDashBaslangic(baslangic);
+          setDashBitis(bitis);
+        }
+      } catch { /* aktif dönem yüklenemezse filtre boş kalır */ }
+    }
+    aktifDonemiGetir();
   }, []);
 
   const tumunuYenile = useCallback(() => {
@@ -754,9 +794,32 @@ export default function BankaKasaSayfasi() {
 
           {/* Son Hareketler */}
           <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700">Son Hareketler</h3>
-              <button onClick={() => setAktifSekme('hareketler')} className="text-xs text-blue-600 hover:underline">Tümünü Gör</button>
+            <div className="border-b border-gray-100 px-4 py-3 flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-semibold text-gray-700">Hareketler</h3>
+                {aktifDonem && (
+                  <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                    📅 Aktif Dönem: {aktifDonem.ad}
+                  </span>
+                )}
+                {aktifDonem && (dashBaslangic !== aktifDonem.baslangic || dashBitis !== aktifDonem.bitis) && (
+                  <button
+                    onClick={() => { setDashBaslangic(aktifDonem.baslangic); setDashBitis(aktifDonem.bitis); setDashTip('tumu'); }}
+                    className="text-xs text-green-700 hover:underline"
+                  >
+                    ↩ Aktif Döneme Dön
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setDashBaslangic(''); setDashBitis(''); setDashTip('tumu'); }}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline"
+                >
+                  Tüm Geçmiş
+                </button>
+                <button onClick={() => setAktifSekme('hareketler')} className="text-xs text-blue-600 hover:underline">Detaylı Filtre →</button>
+              </div>
             </div>
 
             {/* Kompakt filtre bar */}
@@ -773,10 +836,6 @@ export default function BankaKasaSayfasi() {
                 className="rounded-lg border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400" />
               <input type="date" value={dashBitis} onChange={(e) => setDashBitis(e.target.value)}
                 className="rounded-lg border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400" />
-              {(dashTip !== 'tumu' || dashBaslangic || dashBitis) && (
-                <button onClick={() => { setDashTip('tumu'); setDashBaslangic(''); setDashBitis(''); }}
-                  className="text-xs text-gray-400 hover:text-gray-600 underline">Temizle</button>
-              )}
               <span className="ml-auto text-xs text-gray-400">{dashToplam} hareket</span>
             </div>
 

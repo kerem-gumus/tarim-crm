@@ -56,7 +56,7 @@ export async function DELETE(
 
     const mevcutKontenjan = await prisma.kontenjan.findUnique({
       where: { id },
-      include: { gunlukTakip: true },
+      include: { gunlukTakip: { where: { aktif: true } } },
     });
 
     if (!mevcutKontenjan) {

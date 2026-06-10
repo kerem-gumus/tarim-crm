@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-export default function GirisYapSayfasi() {
+function GirisFormu() {
   const yonlendirici = useRouter();
   const aramaParams = useSearchParams();
   const [eposta, setEposta] = useState('');
@@ -147,5 +147,13 @@ export default function GirisYapSayfasi() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function GirisYapSayfasi() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50 text-gray-400">Yükleniyor...</div>}>
+      <GirisFormu />
+    </Suspense>
   );
 }

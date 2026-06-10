@@ -73,6 +73,9 @@ export default function EkipmanGiderGelirModal({
     mesafeKm: '',
     musteriAdi: '',
     bankaHesabiId: '',
+    // Yakıt kaynağı
+    yakitKaynagi: 'yeni_alim' as 'depo' | 'yeni_alim',
+    yakitMalzemeId: '',
     // Nakliye
     kantarBosKg: '',
     kantarDoluKg: '',
@@ -137,7 +140,10 @@ export default function EkipmanGiderGelirModal({
             belgNo: form.belgNo || null,
             kilometre: form.kilometre ? parseInt(form.kilometre) : null,
             litre: form.litre ? parseFloat(form.litre) : null,
-            bankaHesabiId: form.bankaHesabiId || null,
+            bankaHesabiId: (form.tip === 'yakit' && form.yakitKaynagi === 'depo')
+              ? null
+              : (form.bankaHesabiId || null),
+            yakitKaynagi: form.tip === 'yakit' ? form.yakitKaynagi : undefined,
           }
         : {
             tarih: form.tarih,
@@ -266,12 +272,37 @@ export default function EkipmanGiderGelirModal({
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
               </div>
               {tipYakitMi && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Litre</label>
-                  <input type="number" name="litre" value={form.litre} onChange={handleDegistir}
-                    min="0" step="0.01" placeholder="Yakıt miktarı"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Litre</label>
+                    <input type="number" name="litre" value={form.litre} onChange={handleDegistir}
+                      min="0" step="0.01" placeholder="Yakıt miktarı"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Yakıt Kaynağı</label>
+                    <div className="flex gap-4 mt-1">
+                      <label className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input type="radio" name="yakitKaynagi" value="yeni_alim"
+                          checked={form.yakitKaynagi === 'yeni_alim'}
+                          onChange={handleDegistir} className="text-green-600" />
+                        <span>Yeni Alım <span className="text-xs text-gray-400">(banka çıkışı)</span></span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input type="radio" name="yakitKaynagi" value="depo"
+                          checked={form.yakitKaynagi === 'depo'}
+                          onChange={handleDegistir} className="text-green-600" />
+                        <span>Kendi Depom <span className="text-xs text-gray-400">(stoktan düş)</span></span>
+                      </label>
+                    </div>
+                    {form.yakitKaynagi === 'depo' && (
+                      <p className="mt-1 text-xs text-orange-600 bg-orange-50 rounded px-2 py-1">
+                        Depodan kullanım: gider kaydı oluşur, banka işlemi olmaz.
+                        Stok düşümü için ayrıca "Envanter → Yakıt Malzeme → Çıkış" yapınız.
+                      </p>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           )}

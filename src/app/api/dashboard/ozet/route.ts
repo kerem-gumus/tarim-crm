@@ -167,6 +167,26 @@ export async function GET() {
       birim: m.birim,
     }))
 
+    // Cari hesap özeti (cüzdan kullandırma borç/alacak kg)
+    const cariHareketler = await prisma.cariHareket.findMany({
+      where: { aktif: true },
+      select: { yon: true, miktarKg: true },
+    })
+    const toplamAlacakKg = cariHareketler
+      .filter((h) => h.yon === 'bana_borclu')
+      .reduce((s, h) => s + Number(h.miktarKg), 0)
+    const toplamBorcKg = cariHareketler
+      .filter((h) => h.yon === 'ben_borcluyum')
+      .reduce((s, h) => s + Number(h.miktarKg), 0)
+    const netCariKg = toplamAlacakKg - toplamBorcKg
+
+    // Senaryo 1 toplamı: aktif dönem içinde "ben yaptım" kayıtları
+    const fazlaSatisHareketler = await prisma.cariHareket.findMany({
+      where: { aktif: true, yon: 'bana_borclu', islemTipi: 'satis_kaynakli' },
+      select: { miktarKg: true },
+    })
+    const fazlaSatisKg = fazlaSatisHareketler.reduce((s, h) => s + Number(h.miktarKg), 0)
+
     return NextResponse.json({
       aktifSurgunSayisi,
       bugunHasatKg,
@@ -178,6 +198,11 @@ export async function GET() {
       aktifKontenjanSayisi,
       odenmemisAlacak,
       odenmemisBorc,
+      // Cari hesap (kg)
+      cariAlacakKg: toplamAlacakKg,
+      cariBorcKg: toplamBorcKg,
+      netCariKg,
+      fazlaSatisKg,
     })
   } catch (hata) {
     console.error('Dashboard özet hatası:', hata)

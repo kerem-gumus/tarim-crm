@@ -24,7 +24,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ hata: 'Yetersiz yetki' }, { status: 403 })
     }
 
-    const { rol, durum, adSoyad, telefon } = await req.json()
+    const { rol, durum, adSoyad, telefon, rolId } = await req.json()
 
     const guncellenen = await prisma.kullanici.update({
       where: { id },
@@ -33,6 +33,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         ...(durum !== undefined && { durum }),
         ...(adSoyad !== undefined && { adSoyad }),
         ...(telefon !== undefined && { telefon }),
+        // RBAC özel rol (null = sadece KullaniciRol enum kullanılır)
+        ...(rolId !== undefined && { rolId: rolId || null }),
       }
     })
 

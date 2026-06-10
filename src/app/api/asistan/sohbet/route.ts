@@ -81,6 +81,17 @@ export async function POST(istek: Request) {
     })
   } catch (hata) {
     const mesaj = hata instanceof Error ? hata.message : 'Bilinmeyen hata'
-    return NextResponse.json({ hata: `AI yanıt alınamadı: ${mesaj}` }, { status: 500 })
+    const rate429 = mesaj.includes('429') || mesaj.includes('rate') || mesaj.includes('quota')
+
+    // Tüm sağlayıcılar başarısız → uygulama çökmez, anlamlı hata mesajı döner
+    return NextResponse.json(
+      {
+        hata: rate429
+          ? 'AI kotası doldu ve yedek sağlayıcılar da yanıt veremedi. Birkaç dakika sonra tekrar deneyin.'
+          : `AI şu an kullanılamıyor: ${mesaj}`,
+        rate429,
+      },
+      { status: rate429 ? 429 : 500 }
+    )
   }
 }

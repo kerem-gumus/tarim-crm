@@ -1,0 +1,12 @@
+[Unit]
+Description=TarimCRM Hava Durumu — günde 5 kez
+Requires=tarimcrm-hava.service
+
+[Timer]
+# Sabah 06:00, 09:00, 12:00, 15:00, 18:00 (İstanbul = UTC+3)
+OnCalendar=*-*-* 03,06,09,12,15:00:00 UTC
+AccuracySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

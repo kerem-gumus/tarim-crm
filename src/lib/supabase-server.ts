@@ -15,9 +15,7 @@ export async function createSupabaseServerClient() {
         setAll(cerezlerAyarlanacak) {
           try {
             cerezlerAyarlanacak.forEach(({ name, value, options }) => {
-              // maxAge ve expires kaldır → session cookie (tarayıcı kapanınca silinen)
-              const { maxAge: _m, expires: _e, ...sessionOptions } = options ?? {};
-              cookieStosu.set(name, value, sessionOptions);
+              cookieStosu.set(name, value, options);
             });
           } catch {
             // Server Component içinden çağrıldığında setAll çalışmaz — beklenen davranış

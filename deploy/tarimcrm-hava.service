@@ -1,0 +1,13 @@
+[Unit]
+Description=TarimCRM Hava Durumu Güncelleme
+After=network.target
+
+[Service]
+Type=oneshot
+# CRON_SECRET değişkenini .env dosyasından veya Environment ile set edin
+EnvironmentFile=/opt/tarimcrm/.env
+ExecStart=/usr/bin/curl -s -f \
+  -H "Authorization: Bearer ${CRON_SECRET}" \
+  http://localhost:3000/api/cron/hava-durumu
+StandardOutput=journal
+StandardError=journal

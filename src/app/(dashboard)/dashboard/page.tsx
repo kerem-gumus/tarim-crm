@@ -11,6 +11,8 @@ interface DashboardOzet {
   toplamHasatKgBuSezon: number; netKar: number; sonOtuzGunHasat: GunlukHasat[]
   kritikStoklar: KritikStok[]; aktifKontenjanSayisi: number
   odenmemisAlacak: number; odenmemisBorc: number
+  // Cari hesap (kg)
+  cariAlacakKg: number; cariBorcKg: number; netCariKg: number; fazlaSatisKg: number
 }
 
 function paraFormat(t: number) {
@@ -169,6 +171,51 @@ export default function DashboardSayfasi() {
               </span>
             </div>
           </div>
+
+          {/* Cari Hesap — kg bazlı borç/alacak */}
+          {(veri.cariAlacakKg > 0 || veri.cariBorcKg > 0 || veri.fazlaSatisKg > 0) && (
+            <div className="bg-white rounded-2xl border border-orange-100 shadow-sm p-4 md:p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm md:text-base font-semibold text-gray-800">Cüzdan Cari Hesap</h2>
+                <Link href="/cari-hesap" className="text-xs text-orange-600 font-medium hover:underline">Ekstre →</Link>
+              </div>
+              <div className="space-y-2">
+                {veri.cariAlacakKg > 0 && (
+                  <div className="flex items-center justify-between rounded-xl bg-green-50 px-3 py-2">
+                    <span className="text-sm text-green-700">Toplam Alacak</span>
+                    <span className="text-base font-bold text-green-800">
+                      {sayiFormat(veri.cariAlacakKg, 1)} kg
+                    </span>
+                  </div>
+                )}
+                {veri.cariBorcKg > 0 && (
+                  <div className="flex items-center justify-between rounded-xl bg-red-50 px-3 py-2">
+                    <span className="text-sm text-red-700">Toplam Borcum</span>
+                    <span className="text-base font-bold text-red-800">
+                      {sayiFormat(veri.cariBorcKg, 1)} kg
+                    </span>
+                  </div>
+                )}
+                {veri.fazlaSatisKg > 0 && (
+                  <div className="flex items-center justify-between rounded-xl bg-amber-50 px-3 py-2">
+                    <span className="text-sm text-amber-700">Fazla Satış</span>
+                    <span className="text-base font-bold text-amber-800">
+                      {sayiFormat(veri.fazlaSatisKg, 1)} kg
+                    </span>
+                  </div>
+                )}
+                <div className={`flex items-center justify-between rounded-xl px-3 py-2 ${veri.netCariKg > 0 ? 'bg-green-100' : veri.netCariKg < 0 ? 'bg-red-100' : 'bg-gray-100'}`}>
+                  <span className="text-sm font-semibold text-gray-700">Net</span>
+                  <span className={`text-base font-bold ${veri.netCariKg > 0 ? 'text-green-800' : veri.netCariKg < 0 ? 'text-red-800' : 'text-gray-600'}`}>
+                    {veri.netCariKg > 0 ? '+' : ''}{sayiFormat(veri.netCariKg, 1)} kg
+                    <span className="text-xs font-normal ml-1 opacity-70">
+                      {veri.netCariKg > 0 ? 'alacak' : veri.netCariKg < 0 ? 'borç' : ''}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Özet bilgiler */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-5">

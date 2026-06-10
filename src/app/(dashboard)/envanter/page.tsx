@@ -1091,6 +1091,8 @@ export default function EnvanterSayfasi() {
           malzemeId={secilenMalzeme.id}
           malzemeAdi={secilenMalzeme.malzemeAdi}
           birim={secilenMalzeme.birim}
+          mevcutStok={secilenMalzeme.mevcutStok}
+          mevcutBirimFiyat={secilenMalzeme.birimFiyat}
           varsayilanTip={stokTipi}
           onKapat={() => setStokModalAcik(false)}
           onBasarili={(uyari) => {

@@ -18,6 +18,7 @@ export async function GET(istek: Request) {
         tarla: { include: { ciftci: true } },
         isciEkip: true,
         musteri: true,
+        cuzdanKullanici: { select: { id: true, ad: true } },
       },
       orderBy: { tarih: 'desc' },
     });
@@ -55,12 +56,18 @@ export async function POST(istek: Request) {
       satisKgFiyati,
       odemeSekli,
       odemeTarihi,
+      aciklama,
       notlar,
       kontenjanId,
       gunlukKontenjanKg,
+      // Cüzdan kullandırma alanları
+      cuzdanKullaniciId,  // null = "kendim"
+      satisBenimMi,       // true=Senaryo1 (ben yaptım), false=Senaryo2 (o yaptı)
     } = await istek.json();
 
     const kontenjanModu = !!kontenjanId;
+    // Senaryo 2: B yaptı → kg sürgüne/işçiliğe işlenmez
+    const senaryo2 = !!cuzdanKullaniciId && satisBenimMi === false;
 
     if (!surgunId || !tarih || !musteriId || !toplanmaTuru) {
       return NextResponse.json(
@@ -75,15 +82,15 @@ export async function POST(istek: Request) {
     const tartimKg = Number(tartimMiktariKg ?? 0);
     const satisKg = Number(satisMiktariKg ?? tartimKg);
 
+    // Senaryo 2'de işçilik B'ye ait, bize kaydedilmez
     let iscilikToplamTutar: number | null = null;
-    if (toplanmaTuru === 'isci' && isciEkipId && odemeTuru) {
+    if (!senaryo2 && toplanmaTuru === 'isci' && isciEkipId && odemeTuru) {
       if (odemeTuru === 'ton_isi' && tonFiyati) {
+        // Ton işi: (kg / 1000) × TL/ton
         iscilikToplamTutar = (tartimKg / 1000) * Number(tonFiyati);
       } else if (odemeTuru === 'yevmiye' && yevmiyeFiyati) {
-        const uyeSayisi = await prisma.ekipIsciIliskisi.count({
-          where: { ekipId: isciEkipId, ayrilmaTarihi: null },
-        });
-        iscilikToplamTutar = Number(yevmiyeFiyati) * uyeSayisi;
+        // Yevmiye: TL/kg × toplam kg
+        iscilikToplamTutar = Number(yevmiyeFiyati) * tartimKg;
       }
     }
 
@@ -109,7 +116,10 @@ export async function POST(istek: Request) {
         satisToplam: satisKgFiyati ? satisKg * parseFloat(satisKgFiyati) : null,
         odemeSekli: odemeSekli || null,
         odemeTarihi: odemeTarihi ? tarihUTC(odemeTarihi) : null,
+        aciklama: aciklama?.trim() || null,
         notlar: notlar || null,
+        cuzdanKullaniciId: cuzdanKullaniciId || null,
+        satisBenimMi: cuzdanKullaniciId ? (satisBenimMi === true) : null,
         ...audit,
       },
       include: {
@@ -136,8 +146,8 @@ export async function POST(istek: Request) {
       });
     }
 
-    // Sürgün toplam hasat güncellemesi
-    if (tartimKg > 0) {
+    // Senaryo 2: kg sürgüne işlenmez (B'nin hasadı, bizim değil)
+    if (!senaryo2 && tartimKg > 0) {
       await prisma.surgun.update({
         where: { id: surgunId },
         data: { toplamHasatKg: { increment: tartimKg } },
@@ -173,6 +183,23 @@ export async function POST(istek: Request) {
           oncekiBakiyeKg: oncekiBakiye,
           hesaplananSatisKg: satisKg,   // gerçek satış miktarı (0 olabilir)
           kalanBakiyeKg: yeniKalan,
+        },
+      });
+    }
+
+    // Cüzdan kullandırma: cari hareket oluştur
+    if (cuzdanKullaniciId) {
+      await prisma.cariHareket.create({
+        data: {
+          cuzdanKullaniciId,
+          hasatGirisiId: yeniGiris.id,
+          yon: senaryo2 ? 'ben_borcluyum' : 'bana_borclu',
+          islemTipi: 'satis_kaynakli',
+          miktarKg: tartimKg,
+          aciklama: senaryo2
+            ? `B yaptı — cüzdan kullandırma (${tartimKg} kg)`
+            : `Ben yaptım — ${(await prisma.cuzdanKullanicisi.findUnique({ where: { id: cuzdanKullaniciId }, select: { ad: true } }))?.ad ?? ''} adına (${tartimKg} kg)`,
+          tarih: tarihUTC(tarih),
         },
       });
     }

@@ -74,6 +74,10 @@ type HasatGirisi = {
   iscilikToplamTutar: string | null;
   odemeTuru: string | null;
   notlar: string | null;
+  aciklama: string | null;
+  cuzdanKullaniciId: string | null;
+  satisBenimMi: boolean | null;
+  cuzdanKullanici?: { id: string; ad: string } | null;
   tarla: Tarla;
   isciEkip: Ekip | null;
   musteri: Musteri;
@@ -940,10 +944,18 @@ export default function HasatSayfasi() {
                                                 İşçi{giris.isciEkip && ` · ${giris.isciEkip.ekipAdi}`}
                                               </span>
                                             )}
+                                            {giris.cuzdanKullaniciId && (
+                                              <span className="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                                                {giris.satisBenimMi ? `+${giris.cuzdanKullanici?.ad ?? '?'}` : `${giris.cuzdanKullanici?.ad ?? '?'} yaptı`}
+                                              </span>
+                                            )}
                                             {giris.iscilikToplamTutar && (
                                               <span className="text-xs text-gray-500">İşçilik: ₺{sayiFormati(giris.iscilikToplamTutar)}</span>
                                             )}
                                           </div>
+                                          {giris.aciklama && (
+                                            <p className="text-xs text-gray-500 mt-1 truncate">{giris.aciklama}</p>
+                                          )}
                                         </div>
                                         {/* Alt aksiyon çubuğu */}
                                         <div className="flex border-t divide-x divide-gray-100">
@@ -995,6 +1007,7 @@ export default function HasatSayfasi() {
                                           <th className="px-4 py-2">Tartım (kg)</th>
                                           <th className="px-4 py-2">Satış (kg)</th>
                                           <th className="px-4 py-2">Toplanma</th>
+                                          <th className="px-4 py-2">Açıklama</th>
                                           <th className="px-4 py-2">İşçilik</th>
                                           <th className="px-4 py-2 text-right">İşlem</th>
                                         </tr>
@@ -1009,13 +1022,27 @@ export default function HasatSayfasi() {
                                             <td className="px-4 py-2 text-gray-800">{sayiFormati(giris.tartimMiktariKg)}</td>
                                             <td className="px-4 py-2 text-gray-800">{sayiFormati(giris.satisMiktariKg)}</td>
                                             <td className="px-4 py-2">
-                                              {giris.toplanmaTuru === 'tarla_sahibi' ? (
-                                                <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Tarla Sahibi</span>
-                                              ) : (
-                                                <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                                                  İşçi{giris.isciEkip && ` — ${giris.isciEkip.ekipAdi}`}
+                                              <div className="flex flex-col gap-1">
+                                                {giris.toplanmaTuru === 'tarla_sahibi' ? (
+                                                  <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Tarla Sahibi</span>
+                                                ) : (
+                                                  <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                                                    İşçi{giris.isciEkip && ` — ${giris.isciEkip.ekipAdi}`}
+                                                  </span>
+                                                )}
+                                                {giris.cuzdanKullaniciId && (
+                                                  <span className="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                                                    {giris.satisBenimMi ? `+${giris.cuzdanKullanici?.ad ?? '?'} adına` : `${giris.cuzdanKullanici?.ad ?? '?'} yaptı`}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </td>
+                                            <td className="px-4 py-2 text-gray-600 text-xs max-w-[160px]">
+                                              {giris.aciklama ? (
+                                                <span title={giris.aciklama} className="truncate block">
+                                                  {giris.aciklama.length > 40 ? giris.aciklama.slice(0, 40) + '…' : giris.aciklama}
                                                 </span>
-                                              )}
+                                              ) : '—'}
                                             </td>
                                             <td className="px-4 py-2 text-gray-600">
                                               {giris.iscilikToplamTutar ? `₺${sayiFormati(giris.iscilikToplamTutar)}` : '—'}
