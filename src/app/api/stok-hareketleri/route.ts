@@ -126,19 +126,21 @@ export async function POST(istek: Request) {
         },
       });
 
-      // Çıkış + tutar varsa ödeme kaydı oluştur
-      if (hareketTipi === 'cikis' && tutarSayi && tutarSayi > 0) {
+      // Giriş = yeni alım → borç oluştur (depodan çıkış zaten ödenmiş mal, borç yok)
+      if (hareketTipi === 'giris' && tutarSayi && tutarSayi > 0) {
         const tarihStr = tarihDate.toLocaleDateString('tr-TR');
         await tx.odemeKaydi.create({
           data: {
             kategori: 'malzeme',
-            aciklama: `${malzeme.malzemeAdi} - ${tarihStr} kullanımı`,
+            aciklama: `${malzeme.malzemeAdi} alımı — ${tarihStr}`,
+            stokHareketiId: hareket.id,
             tutar: tutarSayi,
             odemeDurumu: 'odeme_bekleniyor',
             odenenTutar: 0,
           },
         });
       }
+      // Çıkış = depodan kullanım → borç oluşmaz (giriş anında zaten borç oluşmuştu)
 
       // Banka hareketi — giriş: para çıkışı / iade: para girişi
       if (bankaHesabiId && tutarSayi && tutarSayi > 0) {

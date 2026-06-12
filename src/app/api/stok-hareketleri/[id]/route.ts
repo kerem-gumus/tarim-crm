@@ -35,6 +35,11 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
         where: { id: hareket.malzemeId },
         data: { mevcutStok: yeniStok },
       }),
+      // Giriş anında oluşan borç kaydını da pasifleştir
+      prisma.odemeKaydi.updateMany({
+        where: { stokHareketiId: id, aktif: true },
+        data: { aktif: false },
+      }),
     ]);
 
     logKaydet({

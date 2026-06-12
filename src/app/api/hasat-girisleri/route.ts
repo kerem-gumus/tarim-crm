@@ -204,6 +204,30 @@ export async function POST(istek: Request) {
       });
     }
 
+    // Özel/kurumsal müşteri + satış fiyatı girilmişse → alacak kaydını HEMEN oluştur
+    // Sürgün kapanmayı beklemiyor. Peşin/vadeli tarihe göre vadeTarihi set edilir.
+    const satisToplamSayi = yeniGiris.satisToplam ? Number(yeniGiris.satisToplam) : 0;
+    const musteriDevletMi = yeniGiris.musteri?.devletMi ?? false;
+    if (!musteriDevletMi && satisToplamSayi > 0 && yeniGiris.satisKgFiyati) {
+      await prisma.gelirKaydi.create({
+        data: {
+          surgunId,
+          hasatGirisiId: yeniGiris.id,
+          musteriId,
+          musteriAdi: yeniGiris.musteri?.musteriAdi ?? null,
+          fiyatTuru: fiyatTuru || null,
+          toplamKg: satisKg,
+          birimFiyat: Number(yeniGiris.satisKgFiyati),
+          toplamTutar: satisToplamSayi,
+          odemeDurumu: 'odeme_bekleniyor',
+          odenenTutar: 0,
+          kalanTutar: satisToplamSayi,
+          vadeTarihi: odemeTarihi ? tarihUTC(odemeTarihi) : null,
+          ...audit,
+        },
+      });
+    }
+
     logKaydet({
       islemTipi: 'olusturma',
       modul: 'hasat',

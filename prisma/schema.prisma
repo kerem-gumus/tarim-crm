@@ -222,6 +222,7 @@ model HasatGirisi {
   cayKalite           CayKalite[]
   kontenjanTakip      KontenjanGunlukTakip[]
   cariHareketler      CariHareket[]
+  gelirKayitlari      GelirKaydi[]
 
   @@map("hasat_girisleri")
 }
@@ -452,6 +453,7 @@ model KontenjanGunlukTakip {
 model GelirKaydi {
   id                String    @id @default(uuid())
   surgunId          String    @map("surgun_id")
+  hasatGirisiId     String?   @map("hasat_girisi_id")    // hasat girişinden oluşan alacak
   musteriId         String?   @map("musteri_id")
   musteriAdi        String?   @map("musteri_adi")        // Görüntüleme için
   fiyatTuru         FiyatTuru? @map("fiyat_turu")        // devlet_fiyati veya ozel_fiyat
@@ -473,6 +475,7 @@ model GelirKaydi {
   aktif             Boolean   @default(true)
 
   surgun            Surgun        @relation(fields: [surgunId], references: [id])
+  hasatGirisi       HasatGirisi?  @relation(fields: [hasatGirisiId], references: [id])
   odemeleri         GelirOdemesi[]
 
   @@map("gelir_kayitlari")
@@ -485,6 +488,7 @@ model OdemeKaydi {
   ilgiliEkipId     String?   @map("ilgili_ekip_id")
   ilgiliIsciId     String?   @map("ilgili_isci_id")
   hasatGirisId     String?   @map("hasat_giris_id")
+  stokHareketiId   String?   @map("stok_hareketi_id")   // stok girişinden oluşan borç
   tutar            Decimal   @db.Decimal(14, 2)
   odemeDurumu      OdemeDurumu @default(odeme_bekleniyor) @map("odeme_durumu")
   odenenTutar      Decimal   @default(0) @map("odenen_tutar") @db.Decimal(14, 2)

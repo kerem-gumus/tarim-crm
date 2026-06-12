@@ -16,8 +16,10 @@ export async function DELETE(_istek: Request, { params }: { params: Promise<{ id
     const audit = await auditGuncelle();
 
     await prisma.odemeKaydi.updateMany({ where: { hasatGirisId: id }, data: { aktif: false, ...audit } });
-    // Cüzdan cari hareketini de pasifleştir — silinen giriş hesaba katılmamalı
+    // Cüzdan cari hareketini de pasifleştir
     await prisma.cariHareket.updateMany({ where: { hasatGirisiId: id, aktif: true }, data: { aktif: false } });
+    // Hasat girişinden oluşan alacak kaydını da pasifleştir
+    await prisma.gelirKaydi.updateMany({ where: { hasatGirisiId: id, aktif: true }, data: { aktif: false } });
     await prisma.hasatGirisi.update({ where: { id }, data: { aktif: false, ...audit } });
 
     // Sürgün toplam hasat güncelle
