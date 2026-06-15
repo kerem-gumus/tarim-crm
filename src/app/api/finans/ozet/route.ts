@@ -7,6 +7,7 @@ export async function GET() {
   try {
     const [gelirKayitlari, odemeKayitlari] = await Promise.all([
       prisma.gelirKaydi.findMany({
+        where: { aktif: true },   // ← sadece aktif kayıtlar
         include: {
           surgun: { include: { hasatDonemi: true } },
         },

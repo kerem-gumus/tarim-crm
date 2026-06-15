@@ -23,6 +23,9 @@ export async function GET() {
       }),
       prisma.gelirKaydi.findMany({
         where: { aktif: { not: false } },
+        include: {
+          odemeleri: { orderBy: { olusturmaTarihi: 'desc' } },
+        },
         orderBy: [{ yil: 'asc' }, { ay: 'asc' }],
       }),
       prisma.budamaBilgisi.findMany({
@@ -114,6 +117,17 @@ export async function GET() {
             odenenTutar: Number(g.odenenTutar),
             kalanTutar: Number(g.kalanTutar),
             odemeDurumu: g.odemeDurumu,
+            odemeleri: ('odemeleri' in g ? (g as { odemeleri: unknown[] }).odemeleri : []).map((o: unknown) => {
+              const od = o as { id: string; gercekTutar: unknown; odemeTarihi: unknown; dekontUrl: unknown; aciklama: unknown; bankaHesabiId: unknown };
+              return {
+                id: od.id,
+                gercekTutar: Number(od.gercekTutar),
+                odemeTarihi: od.odemeTarihi,
+                dekontUrl: od.dekontUrl ?? null,
+                aciklama: od.aciklama ?? null,
+                bankaHesabiId: od.bankaHesabiId ?? null,
+              };
+            }),
           }
           if (mg) {
             mg.aylar.push(ayKayit)

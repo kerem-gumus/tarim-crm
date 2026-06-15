@@ -8,6 +8,15 @@ import ManuelBorcFormu from '@/components/finans/ManuelBorcFormu';
 // Tipler
 // =====================================================
 
+interface GelirOdeme {
+  id: string;
+  gercekTutar: number;
+  odemeTarihi: string | null;
+  dekontUrl: string | null;
+  aciklama: string | null;
+  bankaHesabiId: string | null;
+}
+
 interface AyKaydi {
   id: string;
   ay: number | null;
@@ -18,6 +27,7 @@ interface AyKaydi {
   odenenTutar: number;
   kalanTutar: number;
   odemeDurumu: string;
+  odemeleri: GelirOdeme[];
 }
 
 interface MusteriBilgisi {
@@ -106,6 +116,29 @@ interface FinansOzet {
   odenmeBekleniyor: number;
   toplamBorc: number;
   netDurum: number;
+}
+
+// =====================================================
+// Ödeme Geri Al Butonu
+// =====================================================
+function OdemeGeriAlButon({ gelirKaydiId, odemeId, tutar }: { gelirKaydiId: string; odemeId: string; tutar: number }) {
+  const [yukleniyor, setYukleniyor] = useState(false);
+  async function geriAl() {
+    if (!confirm(`₺${tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} tutarındaki ödemeyi geri almak istediğinizden emin misiniz?\nBanka hareketi de geri alınacak.`)) return;
+    setYukleniyor(true);
+    try {
+      const yanit = await fetch(`/api/gelir-kayitlari/${gelirKaydiId}/odeme/${odemeId}`, { method: 'DELETE' });
+      if (!yanit.ok) { const v = await yanit.json(); alert(v.hata ?? 'Geri alınamadı'); return; }
+      window.location.reload();
+    } finally { setYukleniyor(false); }
+  }
+  return (
+    <button onClick={geriAl} disabled={yukleniyor}
+      className="shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50 rounded px-1.5 py-0.5 transition-colors disabled:opacity-50"
+      title="Ödemeyi geri al">
+      {yukleniyor ? '...' : '↩ Geri Al'}
+    </button>
+  );
 }
 
 // =====================================================
@@ -800,8 +833,10 @@ function AlacaklarSekmesi({
                                   <div className="divide-y divide-gray-100">
                                     {musteri.aylar
                                       .sort((a, b) => ((a.yil ?? 0) * 100 + (a.ay ?? 0)) - ((b.yil ?? 0) * 100 + (b.ay ?? 0)))
-                                      .map((kayit) => (
-                                        <div key={kayit.id} className="px-10 py-3 flex items-center gap-4 bg-white hover:bg-green-50/30 transition-colors">
+                                      .map((kayit) => {
+                                        return (
+                                        <div key={kayit.id} className="bg-white hover:bg-green-50/30 transition-colors">
+                                        <div className="px-10 py-3 flex items-center gap-4">
                                           <div className="w-20 shrink-0">
                                             <p className="text-sm font-medium text-gray-800">{kayit.ay ? AY_UZUN[kayit.ay] : '—'}</p>
                                             <p className="text-xs text-gray-400">{kayit.yil}</p>
@@ -836,7 +871,29 @@ function AlacaklarSekmesi({
                                             )}
                                           </div>
                                         </div>
-                                      ))}
+                                        {kayit.odemeleri && kayit.odemeleri.length > 0 && (
+                                          <div className="mx-6 mb-2 space-y-1 border-l-2 border-green-100 pl-3">
+                                            {kayit.odemeleri.map((odm) => (
+                                              <div key={odm.id} className="flex items-center justify-between gap-2 text-xs text-gray-600 py-0.5">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                  <span className="text-green-600 font-semibold shrink-0">+{paraFormat(odm.gercekTutar)}</span>
+                                                  <span className="text-gray-400 shrink-0">
+                                                    {odm.odemeTarihi ? new Date(odm.odemeTarihi).toLocaleDateString('tr-TR') : '—'}
+                                                  </span>
+                                                  {odm.aciklama && <span className="text-gray-400 truncate">{odm.aciklama}</span>}
+                                                  {odm.dekontUrl && (
+                                                    <a href={odm.dekontUrl} target="_blank" rel="noopener noreferrer"
+                                                      className="text-blue-500 hover:underline shrink-0">📎</a>
+                                                  )}
+                                                </div>
+                                                <OdemeGeriAlButon gelirKaydiId={kayit.id} odemeId={odm.id} tutar={odm.gercekTutar} />
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                        );
+                                      })}
                                   </div>
                                 )}
                               </div>
