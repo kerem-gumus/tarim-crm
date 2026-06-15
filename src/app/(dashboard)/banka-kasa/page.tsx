@@ -533,8 +533,9 @@ export default function BankaKasaSayfasi() {
   const [toplamGiris, setToplamGiris] = useState(0);
   const [toplamCikis, setToplamCikis] = useState(0);
   const [dashTip, setDashTip] = useState<'tumu' | 'giris' | 'cikis'>('tumu');
-  const [dashBaslangic, setDashBaslangic] = useState('');
-  const [dashBitis, setDashBitis] = useState('');
+  // Varsayılan: cari yıl başı → bugün (aktif dönem yüklenince güncellenir)
+  const [dashBaslangic, setDashBaslangic] = useState(`${new Date().getFullYear()}-01-01`);
+  const [dashBitis, setDashBitis] = useState(bugunYMD());
 
   // ── İşlemler "Son İşlemler" ──
   const [islemHareketler, setIslemHareketler] = useState<HareketSatir[]>([]);
@@ -554,8 +555,8 @@ export default function BankaKasaSayfasi() {
   const [harYukleniyor, setHarYukleniyor] = useState(false);
   const [harArama, setHarArama] = useState('');
   const [harTip, setHarTip] = useState<'tumu' | 'giris' | 'cikis'>('tumu');
-  const [harBaslangic, setHarBaslangic] = useState('');
-  const [harBitis, setHarBitis] = useState('');
+  const [harBaslangic, setHarBaslangic] = useState(`${new Date().getFullYear()}-01-01`);
+  const [harBitis, setHarBitis] = useState(bugunYMD());
   const [harHesapId, setHarHesapId] = useState('');
 
   // Filtre değişince sayfa sıfırla
@@ -619,16 +620,19 @@ export default function BankaKasaSayfasi() {
         if (aktif) {
           const baslangic = aktif.baslangicTarihi
             ? aktif.baslangicTarihi.split('T')[0]
-            : '';
+            : `${new Date().getFullYear()}-01-01`;
           const bitis = aktif.bitisTarihi
             ? aktif.bitisTarihi.split('T')[0]
             : bugunYMD();
           setAktifDonem({ ad: aktif.donemAdi, yil: aktif.yil, baslangic, bitis });
-          // Genel Bakış sekmesi varsayılan olarak aktif dönemi gösterir
           setDashBaslangic(baslangic);
           setDashBitis(bitis);
+          // Hareketler sekmesi de aktif döneme başlar
+          setHarBaslangic(baslangic);
+          setHarBitis(bitis);
         }
-      } catch { /* aktif dönem yüklenemezse filtre boş kalır */ }
+        // Aktif dönem yoksa: cari yıl kalır (zaten state olarak set edildi)
+      } catch { /* dönem yüklenemezse cari yıl kalır */ }
     }
     aktifDonemiGetir();
   }, []);
@@ -813,7 +817,7 @@ export default function BankaKasaSayfasi() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => { setDashBaslangic(''); setDashBitis(''); setDashTip('tumu'); }}
+                  onClick={() => { setDashBaslangic('2020-01-01'); setDashBitis(bugunYMD()); setDashTip('tumu'); }}
                   className="text-xs text-gray-400 hover:text-gray-600 underline"
                 >
                   Tüm Geçmiş
