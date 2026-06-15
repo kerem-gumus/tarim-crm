@@ -31,7 +31,7 @@ export async function GET(istek: NextRequest) {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: Record<string, any> = {};
+    const where: Record<string, any> = { aktif: true };
 
     if (tip === 'giris' || tip === 'cikis') where.tip = tip;
     if (hesapId) where.bankaHesabiId = hesapId;

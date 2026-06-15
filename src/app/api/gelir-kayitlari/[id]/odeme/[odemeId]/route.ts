@@ -89,7 +89,7 @@ export async function DELETE(
         // Hareketi pasifleştir (soft delete)
         await tx.bankaHareketi.update({
           where: { id: ilgiliHareket.id },
-          data: { referansTipi: 'iptal_edildi' },
+          data: { aktif: false, referansTipi: 'iptal_edildi' },
         });
 
         // Banka bakiyesini geri al (giriş hareketi → bakiyeden düş)
@@ -114,7 +114,7 @@ export async function DELETE(
             if (farkHareket) {
               await tx.bankaHareketi.update({
                 where: { id: farkHareket.id },
-                data: { referansTipi: 'iptal_edildi' },
+                data: { aktif: false, referansTipi: 'iptal_edildi' },
               });
               // Fark hesabı bakiyesini da geri al
               const farkYon = farkTutar > 0 ? -Math.abs(farkTutar) : Math.abs(farkTutar);

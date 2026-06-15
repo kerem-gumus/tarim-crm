@@ -539,9 +539,10 @@ model BankaHareketi {
   tutar           Decimal     @db.Decimal(14, 2)
   aciklama        String
   tarih           DateTime    @db.Date
-  referansTipi    String?     @map("referans_tipi") // "gelir_kaydi" / "odeme_kaydi" / "manuel"
+  referansTipi    String?     @map("referans_tipi")
   referansId      String?     @map("referans_id")
   dekontUrl       String?     @map("dekont_url")
+  aktif           Boolean     @default(true)
   olusturmaTarihi DateTime    @default(now()) @map("olusturma_tarihi")
   olusturanId     String?     @map("olusturan_id")
   olusturanAdi    String?     @map("olusturan_adi")
