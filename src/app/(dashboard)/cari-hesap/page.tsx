@@ -32,39 +32,47 @@ function kgFormat(kg: number) {
 function ParaHareketiFormu({
   cuzdanKullaniciId,
   ad,
+  mevcut,
   onKaydet,
   onKapat,
 }: {
   cuzdanKullaniciId: string;
   ad: string;
+  mevcut?: CariHareketSatir;  // doluysa düzenleme modu
   onKaydet: () => void;
   onKapat: () => void;
 }) {
-  const [yon, setYon] = useState<'bana_borclu' | 'ben_borcluyum'>('bana_borclu');
-  const [tutarTl, setTutarTl] = useState('');
-  const [aciklama, setAciklama] = useState('');
-  const [tarih, setTarih] = useState(new Date().toISOString().split('T')[0]);
-  const [vadeTarihi, setVadeTarihi] = useState('');
-  const [bankaHesaplari, setBankaHesaplari] = useState<{ id: string; hesapAdi: string; bakiye: number }[]>([]);
-  const [bankaHesabiId, setBankaHesabiId] = useState('');
+  const duzenleme = !!mevcut;
+  const [yon, setYon] = useState<'bana_borclu' | 'ben_borcluyum'>(
+    mevcut?.yon === 'ben_borcluyum' ? 'ben_borcluyum' : 'bana_borclu'
+  );
+  const [tutarTl, setTutarTl] = useState(mevcut?.tutarTl ? String(mevcut.tutarTl) : '');
+  const [aciklama, setAciklama] = useState(mevcut?.aciklama ?? '');
+  const [tarih, setTarih] = useState(
+    mevcut?.tarih ? new Date(mevcut.tarih).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+  );
+  const [vadeTarihi, setVadeTarihi] = useState(
+    mevcut?.vadeTarihi ? new Date(mevcut.vadeTarihi).toISOString().split('T')[0] : ''
+  );
   const [kaydediliyor, setKaydediliyor] = useState(false);
   const [hata, setHata] = useState('');
-
-  useEffect(() => {
-    fetch('/api/banka-hesaplari')
-      .then(r => r.json())
-      .then(v => Array.isArray(v) ? setBankaHesaplari(v.filter((h: { tur: string; aktif: boolean }) => h.tur !== 'fark_hesabi' && h.aktif !== false)) : [])
-      .catch(() => {});
-  }, []);
 
   async function kaydet() {
     if (!tutarTl || Number(tutarTl) <= 0) { setHata('Geçerli tutar giriniz'); return; }
     setKaydediliyor(true); setHata('');
     try {
-      const yanit = await fetch('/api/cari-hesap/para-hareketi', {
-        method: 'POST',
+      const url = duzenleme
+        ? `/api/cari-hesap/${mevcut!.id}`
+        : '/api/cari-hesap/para-hareketi';
+      const method = duzenleme ? 'PUT' : 'POST';
+      const body = duzenleme
+        ? { tutarTl: Number(tutarTl), yon, aciklama, tarih, vadeTarihi: vadeTarihi || null }
+        : { cuzdanKullaniciId, yon, tutarTl: Number(tutarTl), aciklama, tarih, vadeTarihi: vadeTarihi || null };
+
+      const yanit = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cuzdanKullaniciId, yon, tutarTl: Number(tutarTl), aciklama, tarih, vadeTarihi: vadeTarihi || null, bankaHesabiId: bankaHesabiId || null }),
+        body: JSON.stringify(body),
       });
       if (!yanit.ok) { const v = await yanit.json(); setHata(v.hata ?? 'Hata'); return; }
       onKaydet();
@@ -74,21 +82,21 @@ function ParaHareketiFormu({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl space-y-3">
-        <h3 className="text-sm font-semibold text-gray-800">Para Hareketi — {ad}</h3>
-        <p className="text-xs text-gray-500">Çaya karşılık değil, para olarak gerçekleşen cari hareket (örn. benim adıma sattı, parasını yatırdı).</p>
+        <h3 className="text-sm font-semibold text-gray-800">
+          {duzenleme ? 'Para Hareketi Düzenle' : `Para Hareketi — ${ad}`}
+        </h3>
+        <p className="text-xs text-gray-500">Hatırlatma amaçlı kayıt — banka hareketi oluşturmaz.</p>
 
         <div>
           <label className="block text-xs text-gray-600 mb-1">Yön</label>
-          <div className="flex gap-3">
+          <div className="space-y-1">
             <label className="flex items-center gap-1.5 cursor-pointer text-xs">
               <input type="radio" checked={yon === 'bana_borclu'} onChange={() => setYon('bana_borclu')} className="text-blue-600" />
-              <span>{ad} bana borçlu <span className="text-gray-400">(bana para yatırdı)</span></span>
+              <span>{ad} bana borçlu <span className="text-gray-400">(para yatırdı)</span></span>
             </label>
-          </div>
-          <div className="flex gap-3 mt-1">
             <label className="flex items-center gap-1.5 cursor-pointer text-xs">
               <input type="radio" checked={yon === 'ben_borcluyum'} onChange={() => setYon('ben_borcluyum')} className="text-blue-600" />
-              <span>Ben borçluyum <span className="text-gray-400">(ona para gönderdim)</span></span>
+              <span>Ben borçluyum <span className="text-gray-400">(para gönderdim)</span></span>
             </label>
           </div>
         </div>
@@ -107,20 +115,9 @@ function ParaHareketiFormu({
         </div>
 
         <div>
-          <label className="block text-xs text-gray-600 mb-1">Vade Tarihi <span className="text-gray-400">(opsiyonel — yaklaşınca uyarı gelir)</span></label>
+          <label className="block text-xs text-gray-600 mb-1">Vade Tarihi <span className="text-gray-400">(yaklaşınca uyarı gelir)</span></label>
           <input type="date" value={vadeTarihi} onChange={e => setVadeTarihi(e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
-        </div>
-
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Banka Hesabı <span className="text-gray-400">(para yatırıldıysa)</span></label>
-          <select value={bankaHesabiId} onChange={e => setBankaHesabiId(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-            <option value="">— Banka seçin —</option>
-            {bankaHesaplari.map(h => (
-              <option key={h.id} value={h.id}>{h.hesapAdi} (₺{Number(h.bakiye).toLocaleString('tr-TR', { minimumFractionDigits: 2 })})</option>
-            ))}
-          </select>
         </div>
 
         <div>
@@ -238,6 +235,18 @@ function CariHesapIc() {
   const [yukleniyor, setYukleniyor] = useState(true);
   const [odesmeAcik, setOdesmeAcik] = useState(false);
   const [paraHareketiAcik, setParaHareketiAcik] = useState(false);
+  const [duzenlenecekHareket, setDuzenlenecekHareket] = useState<CariHareketSatir | null>(null);
+  const [hareketSiliniyor, setHareketSiliniyor] = useState<string | null>(null);
+
+  async function hareketSil(hareketId: string) {
+    if (!confirm('Bu cari hareketi silmek istediğinizden emin misiniz?')) return;
+    setHareketSiliniyor(hareketId);
+    try {
+      const yanit = await fetch(`/api/cari-hesap/${hareketId}`, { method: 'DELETE' });
+      if (!yanit.ok) { const v = await yanit.json(); alert(v.hata ?? 'Silinemedi'); return; }
+      await getir();
+    } finally { setHareketSiliniyor(null); }
+  }
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -300,6 +309,7 @@ function CariHesapIc() {
                     <th className="px-4 py-3 text-right">Miktar (kg)</th>
                     <th className="px-4 py-3 text-right">Kümülatif Bakiye</th>
                     <th className="px-4 py-3">Açıklama</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -336,6 +346,21 @@ function CariHesapIc() {
                         {h.kumBakiyeKg !== 0 && <span className="text-xs font-normal ml-1 opacity-70">{h.kumBakiyeKg > 0 ? 'alacak' : 'borç'}</span>}
                       </td>
                       <td className="px-4 py-2.5 text-gray-600 text-xs">{h.aciklama ?? '—'}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        {h.islemTipi === 'para_tahsilat' && (
+                          <span className="inline-flex gap-1">
+                            <button
+                              onClick={() => setDuzenlenecekHareket(h)}
+                              className="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
+                            >Düzenle</button>
+                            <button
+                              onClick={() => hareketSil(h.id)}
+                              disabled={hareketSiliniyor === h.id}
+                              className="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50 disabled:opacity-50"
+                            >{hareketSiliniyor === h.id ? '...' : 'Sil'}</button>
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -344,25 +369,49 @@ function CariHesapIc() {
               {/* Mobil */}
               <div className="md:hidden divide-y divide-gray-100">
                 {ekstre.hareketler.map((h) => (
-                  <div key={h.id} className="px-4 py-3 flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${h.islemTipi === 'odesme' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {h.islemTipi === 'odesme' ? 'Ödeşme' : 'Satış'}
-                        </span>
-                        <span className={`text-xs font-medium ${h.yon === 'bana_borclu' ? 'text-green-700' : 'text-red-600'}`}>
-                          {h.yon === 'bana_borclu' ? 'Alacak' : 'Borç'}
-                        </span>
-                        <span className="text-xs text-gray-400">{new Date(h.tarih).toLocaleDateString('tr-TR')}</span>
+                  <div key={h.id} className="px-4 py-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                            h.islemTipi === 'odesme' ? 'bg-blue-100 text-blue-700' :
+                            h.islemTipi === 'para_tahsilat' ? 'bg-green-100 text-green-700' :
+                            'bg-amber-100 text-amber-700'}`}>
+                            {h.islemTipi === 'odesme' ? 'Çay Ödeşme' : h.islemTipi === 'para_tahsilat' ? '₺ Para' : 'Satış'}
+                          </span>
+                          <span className={`text-xs font-medium ${h.yon === 'bana_borclu' ? 'text-green-700' : 'text-red-600'}`}>
+                            {h.yon === 'bana_borclu' ? 'Alacak' : 'Borç'}
+                          </span>
+                          <span className="text-xs text-gray-400">{new Date(h.tarih).toLocaleDateString('tr-TR')}</span>
+                        </div>
+                        {h.aciklama && <p className="text-xs text-gray-500 mt-1">{h.aciklama}</p>}
+                        {h.vadeTarihi && (
+                          <p className="text-xs text-orange-600 mt-0.5">Vade: {new Date(h.vadeTarihi).toLocaleDateString('tr-TR')}</p>
+                        )}
                       </div>
-                      {h.aciklama && <p className="text-xs text-gray-500 mt-1">{h.aciklama}</p>}
+                      <div className="text-right shrink-0">
+                        <p className="font-semibold text-sm">
+                          {h.islemTipi === 'para_tahsilat' && h.tutarTl
+                            ? `₺${h.tutarTl.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`
+                            : kgFormat(h.miktarKg)}
+                        </p>
+                        <p className={`text-xs ${h.kumBakiyeKg > 0 ? 'text-green-700' : h.kumBakiyeKg < 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                          Bakiye: {h.kumBakiyeKg > 0 ? '+' : ''}{kgFormat(h.kumBakiyeKg)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-semibold text-sm">{kgFormat(h.miktarKg)}</p>
-                      <p className={`text-xs ${h.kumBakiyeKg > 0 ? 'text-green-700' : h.kumBakiyeKg < 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                        Bakiye: {h.kumBakiyeKg > 0 ? '+' : ''}{kgFormat(h.kumBakiyeKg)}
-                      </p>
-                    </div>
+                    {h.islemTipi === 'para_tahsilat' && (
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={() => setDuzenlenecekHareket(h)}
+                          className="flex-1 rounded-lg border border-blue-200 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50">
+                          Düzenle
+                        </button>
+                        <button onClick={() => hareketSil(h.id)} disabled={hareketSiliniyor === h.id}
+                          className="flex-1 rounded-lg border border-red-200 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-50">
+                          {hareketSiliniyor === h.id ? '...' : 'Sil'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -385,6 +434,15 @@ function CariHesapIc() {
             ad={ekstre.kullanici.ad}
             onKaydet={() => { setParaHareketiAcik(false); getir(); }}
             onKapat={() => setParaHareketiAcik(false)}
+          />
+        )}
+        {duzenlenecekHareket && (
+          <ParaHareketiFormu
+            cuzdanKullaniciId={cuzdanId}
+            ad={ekstre.kullanici.ad}
+            mevcut={duzenlenecekHareket}
+            onKaydet={() => { setDuzenlenecekHareket(null); getir(); }}
+            onKapat={() => setDuzenlenecekHareket(null)}
           />
         )}
       </div>
