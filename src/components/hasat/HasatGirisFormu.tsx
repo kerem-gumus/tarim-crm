@@ -61,6 +61,7 @@ type FormVerisi = {
   // Cüzdan kullandırma
   cuzdanKullaniciId: string; // '' = "kendim"
   satisBenimMi: boolean;    // true=Senaryo1, false=Senaryo2
+  cariMiktarKg: string;     // Senaryo1: toplam içinden cari hesaba düşülecek kg (boş=tamamı)
 };
 
 type Props = {
@@ -113,6 +114,7 @@ export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet 
     notlar: '',
     cuzdanKullaniciId: '',
     satisBenimMi: true,
+    cariMiktarKg: '',
   });
 
   const [tarlalar, setTarlalar] = useState<Tarla[]>([]);
@@ -297,6 +299,10 @@ export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet 
         // Cüzdan kullandırma
         cuzdanKullaniciId: form.cuzdanKullaniciId || null,
         satisBenimMi: form.cuzdanKullaniciId ? form.satisBenimMi : null,
+        // Kısmi cari: Senaryo1'de boş bırakılırsa tamamı, dolu ise sadece o kadar kg cari hesaba düşer
+        cariMiktarKg: (form.cuzdanKullaniciId && form.satisBenimMi && form.cariMiktarKg)
+          ? turkceDecimale(form.cariMiktarKg)
+          : null,
       };
 
       // Kontenjan bilgisi (bakiye hesabı için)
@@ -435,6 +441,40 @@ export default function HasatGirisFormu({ surgunId, netFiyat, onKapat, onKaydet 
                   {form.satisBenimMi === false && (
                     <div className="mt-2 rounded-lg bg-orange-100 border border-orange-200 px-3 py-2 text-xs text-orange-800">
                       Bu kg sürgün/tarla/işçilik toplamına işlenmeyecek. Sadece cari borç kaydı oluşur.
+                    </div>
+                  )}
+
+                  {/* Kısmi cari — Senaryo 1'de kaç kg cari hesaba düşsün */}
+                  {form.satisBenimMi === true && (
+                    <div className="mt-3 space-y-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Cari Hesaba Düşülecek Miktar (kg)
+                        <span className="ml-1 text-xs text-gray-400 font-normal">— boş bırakılırsa toplam kg'ın tamamı</span>
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={form.cariMiktarKg}
+                        onChange={(e) => setForm((p) => ({ ...p, cariMiktarKg: e.target.value }))}
+                        placeholder={`Örn: 250 (toplam: ${form.tartimMiktariKg || '?'} kg)`}
+                        className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                      {form.cariMiktarKg && form.tartimMiktariKg && (() => {
+                        const cari = turkceDecimale(form.cariMiktarKg);
+                        const toplam = Number(form.tartimMiktariKg);
+                        const benim = toplam - cari;
+                        const seciliAd = cuzdanKullanicilari.find(k => k.id === form.cuzdanKullaniciId)?.ad ?? '?';
+                        if (cari > toplam) return (
+                          <p className="text-xs text-red-600">Cari miktar toplam kg'ı aşamaz!</p>
+                        );
+                        return (
+                          <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 space-y-0.5">
+                            <p>{seciliAd} cari: <strong>{cari.toLocaleString('tr-TR')} kg</strong> borçlu</p>
+                            <p>Benim hasadım: <strong>{benim.toLocaleString('tr-TR')} kg</strong></p>
+                            <p className="text-gray-500">Sürgüne işlenecek toplam: <strong>{toplam.toLocaleString('tr-TR')} kg</strong></p>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>

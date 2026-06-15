@@ -63,6 +63,7 @@ export async function POST(istek: Request) {
       // Cüzdan kullandırma alanları
       cuzdanKullaniciId,  // null = "kendim"
       satisBenimMi,       // true=Senaryo1 (ben yaptım), false=Senaryo2 (o yaptı)
+      cariMiktarKg,       // Senaryo1: toplam içinden cari hesaba düşülecek kg (null=tamamı)
     } = await istek.json();
 
     const kontenjanModu = !!kontenjanId;
@@ -120,6 +121,9 @@ export async function POST(istek: Request) {
         notlar: notlar || null,
         cuzdanKullaniciId: cuzdanKullaniciId || null,
         satisBenimMi: cuzdanKullaniciId ? (satisBenimMi === true) : null,
+        cariMiktarKg: (cuzdanKullaniciId && satisBenimMi === true && cariMiktarKg)
+          ? Number(cariMiktarKg)
+          : null,
         ...audit,
       },
       include: {
@@ -189,16 +193,25 @@ export async function POST(istek: Request) {
 
     // Cüzdan kullandırma: cari hareket oluştur
     if (cuzdanKullaniciId) {
+      // Senaryo1'de cariMiktarKg doluysa sadece o kadar kg cari hesaba düşer, boşsa tamamı
+      const cariKg = senaryo2
+        ? tartimKg
+        : (cariMiktarKg ? Number(cariMiktarKg) : tartimKg);
+
+      const cuzdanAd = (await prisma.cuzdanKullanicisi.findUnique({
+        where: { id: cuzdanKullaniciId }, select: { ad: true }
+      }))?.ad ?? '';
+
       await prisma.cariHareket.create({
         data: {
           cuzdanKullaniciId,
           hasatGirisiId: yeniGiris.id,
           yon: senaryo2 ? 'ben_borcluyum' : 'bana_borclu',
           islemTipi: 'satis_kaynakli',
-          miktarKg: tartimKg,
+          miktarKg: cariKg,
           aciklama: senaryo2
-            ? `B yaptı — cüzdan kullandırma (${tartimKg} kg)`
-            : `Ben yaptım — ${(await prisma.cuzdanKullanicisi.findUnique({ where: { id: cuzdanKullaniciId }, select: { ad: true } }))?.ad ?? ''} adına (${tartimKg} kg)`,
+            ? `${cuzdanAd} yaptı — cüzdan kullandırma (${cariKg} kg)`
+            : `Ben yaptım — ${cuzdanAd} cari: ${cariKg} kg (toplam: ${tartimKg} kg)`,
           tarih: tarihUTC(tarih),
         },
       });

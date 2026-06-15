@@ -204,6 +204,7 @@ model HasatGirisi {
   // Cüzdan kullandırma alanları (null = "kendim")
   cuzdanKullaniciId   String?  @map("cuzdan_kullanici_id")   // Kimin adına yapıldı
   satisBenimMi        Boolean? @map("satis_benim_mi")        // true=Senaryo1 ben yaptım, false=Senaryo2 o yaptı
+  cariMiktarKg        Decimal? @map("cari_miktar_kg") @db.Decimal(10, 2) // Senaryo1: toplam içinden cari hesaba düşülecek kg
   notlar              String?
   olusturmaTarihi     DateTime @default(now()) @map("olusturma_tarihi")
   olusturanId         String?  @map("olusturan_id")

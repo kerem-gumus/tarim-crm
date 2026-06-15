@@ -84,9 +84,10 @@ export async function GET() {
         where: { durum: 'aktif', aktif: true },
       }),
 
-      // Ödenmemiş alacak
+      // Ödenmemiş alacak — sadece aktif kayıtlar
       prisma.gelirKaydi.aggregate({
         where: {
+          aktif: true,
           odemeDurumu: { in: ['odeme_bekleniyor', 'kismi_odendi'] },
         },
         _sum: {
