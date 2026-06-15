@@ -144,6 +144,10 @@ export default function HasatSayfasi() {
   const [islemYapiliyor, setIslemYapiliyor] = useState(false);
   const [silOnayId, setSilOnayId] = useState<string | null>(null);
   const [siliniyor, setSiliniyor] = useState(false);
+  // Toplu silme + düzenleme
+  const [seciliGirisler, setSeciliGirisler] = useState<Set<string>>(new Set());
+  const [topluSiliniyor, setTopluSiliniyor] = useState(false);
+  const [duzenlenecekGiris, setDuzenlenecekGiris] = useState<HasatGirisi | null>(null);
 
   // Kesinti yönetimi
   const [kesintiDuzenleAcik, setKesintiDuzenleAcik] = useState(false);
@@ -263,6 +267,23 @@ export default function HasatSayfasi() {
     } finally {
       setIslemYapiliyor(false);
     }
+  }
+
+  async function topluSil(surgunId: string) {
+    if (seciliGirisler.size === 0) return;
+    if (!confirm(`${seciliGirisler.size} hasat girişini silmek istediğinizden emin misiniz?`)) return;
+    setTopluSiliniyor(true);
+    try {
+      const yanit = await fetch('/api/hasat-girisleri/toplu-sil', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ girisIdleri: [...seciliGirisler] }),
+      });
+      if (!yanit.ok) { const v = await yanit.json(); alert(v.hata ?? 'Silinemedi'); return; }
+      setSeciliGirisler(new Set());
+      await surgunGirisleriniGetir(surgunId);
+      await donemleriGetir();
+    } finally { setTopluSiliniyor(false); }
   }
 
   async function girisiniSil(girisId: string, surgunId: string) {
@@ -914,19 +935,56 @@ export default function HasatSayfasi() {
                                 </div>
                               ) : (
                                 <>
+                                  {/* Toplu silme toolbar */}
+                                  {seciliGirisler.size > 0 && (
+                                    <div className="flex items-center justify-between px-4 py-2 bg-red-50 border-b border-red-100">
+                                      <span className="text-sm font-medium text-red-700">
+                                        {seciliGirisler.size} giriş seçildi
+                                      </span>
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() => setSeciliGirisler(new Set())}
+                                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                                        >
+                                          Seçimi Kaldır
+                                        </button>
+                                        <button
+                                          onClick={() => topluSil(surgun.id)}
+                                          disabled={topluSiliniyor}
+                                          className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                                        >
+                                          {topluSiliniyor ? 'Siliniyor...' : `${seciliGirisler.size} Girişi Sil`}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
                                   {/* Mobil kart listesi */}
                                   <div className="md:hidden divide-y divide-gray-100">
                                     {surgunGirisleri[surgun.id].map((giris) => (
-                                      <div key={giris.id} className="bg-white">
+                                      <div key={giris.id} className={`bg-white ${seciliGirisler.has(giris.id) ? 'bg-red-50' : ''}`}>
                                         <div className="px-4 pt-3 pb-2">
                                           <div className="flex items-start justify-between gap-2">
-                                            <div className="flex-1 min-w-0">
-                                              <p className="text-base font-bold text-gray-900 truncate">
-                                                {giris.tarla?.tarlaAdi ?? <span className="italic text-gray-400">Kontenjan</span>}
-                                              </p>
-                                              <p className="text-xs text-gray-500 mt-0.5">
-                                                {giris.tarla?.ciftci.adSoyad ?? '—'} · {giris.musteri.musteriAdi}
-                                              </p>
+                                            <div className="flex items-start gap-2 flex-1 min-w-0">
+                                              <input type="checkbox"
+                                                checked={seciliGirisler.has(giris.id)}
+                                                onChange={(e) => {
+                                                  setSeciliGirisler(prev => {
+                                                    const yeni = new Set(prev);
+                                                    if (e.target.checked) yeni.add(giris.id);
+                                                    else yeni.delete(giris.id);
+                                                    return yeni;
+                                                  });
+                                                }}
+                                                className="accent-red-600 mt-1 shrink-0"
+                                              />
+                                              <div className="min-w-0">
+                                                <p className="text-base font-bold text-gray-900 truncate">
+                                                  {giris.tarla?.tarlaAdi ?? <span className="italic text-gray-400">Kontenjan</span>}
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-0.5">
+                                                  {giris.tarla?.ciftci.adSoyad ?? '—'} · {giris.musteri.musteriAdi}
+                                                </p>
+                                              </div>
                                             </div>
                                             <div className="text-right shrink-0">
                                               <p className="text-xs text-gray-400">Tartım / Satış</p>
@@ -976,12 +1034,20 @@ export default function HasatSayfasi() {
                                               </button>
                                             </>
                                           ) : (
-                                            <button
-                                              onClick={() => setSilOnayId(giris.id)}
-                                              className="flex-1 flex items-center justify-center min-h-[44px] text-sm font-medium text-red-500 active:bg-red-50"
-                                            >
-                                              Sil
-                                            </button>
+                                            <>
+                                              <button
+                                                onClick={() => setDuzenlenecekGiris(giris)}
+                                                className="flex-1 flex items-center justify-center min-h-[44px] text-sm font-medium text-blue-600 active:bg-blue-50"
+                                              >
+                                                Düzenle
+                                              </button>
+                                              <button
+                                                onClick={() => setSilOnayId(giris.id)}
+                                                className="flex-1 flex items-center justify-center min-h-[44px] text-sm font-medium text-red-500 active:bg-red-50"
+                                              >
+                                                Sil
+                                              </button>
+                                            </>
                                           )}
                                         </div>
                                       </div>
@@ -1000,6 +1066,21 @@ export default function HasatSayfasi() {
                                     <table className="w-full text-sm">
                                       <thead>
                                         <tr className="border-b bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                          <th className="px-3 py-2">
+                                            <input type="checkbox"
+                                              checked={surgunGirisleri[surgun.id]?.length > 0 && surgunGirisleri[surgun.id].every(g => seciliGirisler.has(g.id))}
+                                              onChange={(e) => {
+                                                const ids = surgunGirisleri[surgun.id]?.map(g => g.id) ?? [];
+                                                setSeciliGirisler(prev => {
+                                                  const yeni = new Set(prev);
+                                                  if (e.target.checked) ids.forEach(id => yeni.add(id));
+                                                  else ids.forEach(id => yeni.delete(id));
+                                                  return yeni;
+                                                });
+                                              }}
+                                              className="accent-red-600"
+                                            />
+                                          </th>
                                           <th className="px-4 py-2">Tarih</th>
                                           <th className="px-4 py-2">Tarla</th>
                                           <th className="px-4 py-2">Çiftçi</th>
@@ -1014,7 +1095,21 @@ export default function HasatSayfasi() {
                                       </thead>
                                       <tbody className="divide-y">
                                         {surgunGirisleri[surgun.id].map((giris) => (
-                                          <tr key={giris.id} className="hover:bg-gray-50">
+                                          <tr key={giris.id} className={`hover:bg-gray-50 ${seciliGirisler.has(giris.id) ? 'bg-red-50' : ''}`}>
+                                            <td className="px-3 py-2">
+                                              <input type="checkbox"
+                                                checked={seciliGirisler.has(giris.id)}
+                                                onChange={(e) => {
+                                                  setSeciliGirisler(prev => {
+                                                    const yeni = new Set(prev);
+                                                    if (e.target.checked) yeni.add(giris.id);
+                                                    else yeni.delete(giris.id);
+                                                    return yeni;
+                                                  });
+                                                }}
+                                                className="accent-red-600"
+                                              />
+                                            </td>
                                             <td className="px-4 py-2 text-gray-600">{tarihFormati(giris.tarih)}</td>
                                             <td className="px-4 py-2 font-medium text-gray-800">{giris.tarla?.tarlaAdi ?? <span className="text-gray-400 italic">Kontenjan</span>}</td>
                                             <td className="px-4 py-2 text-gray-600">{giris.tarla?.ciftci.adSoyad ?? '—'}</td>
@@ -1056,7 +1151,10 @@ export default function HasatSayfasi() {
                                                   <button onClick={() => setSilOnayId(null)} className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100">İptal</button>
                                                 </span>
                                               ) : (
-                                                <button onClick={() => setSilOnayId(giris.id)} className="rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50">Sil</button>
+                                                <span className="inline-flex gap-1">
+                                                  <button onClick={() => setDuzenlenecekGiris(giris)} className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50">Düzenle</button>
+                                                  <button onClick={() => setSilOnayId(giris.id)} className="rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50">Sil</button>
+                                                </span>
                                               )}
                                             </td>
                                           </tr>
@@ -1652,6 +1750,107 @@ export default function HasatSayfasi() {
           onKaydet={() => { setDesteklemeOdemeModal(null); donemleriGetir(); }}
         />
       )}
+
+      {/* Hasat Girişi Düzenleme Modalı */}
+      {duzenlenecekGiris && (
+        <HasatGirisDuzenleModal
+          giris={duzenlenecekGiris}
+          onKapat={() => setDuzenlenecekGiris(null)}
+          onKaydet={async () => {
+            setDuzenlenecekGiris(null);
+            await surgunGirisleriniGetir(duzenlenecekGiris.surgunId);
+            await donemleriGetir();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Hasat Girişi Düzenleme Modalı ──────────────────────────────────────────
+function HasatGirisDuzenleModal({
+  giris,
+  onKapat,
+  onKaydet,
+}: {
+  giris: { id: string; tarih: string; tartimMiktariKg: string; satisMiktariKg: string; aciklama: string | null; notlar: string | null; surgunId: string };
+  onKapat: () => void;
+  onKaydet: () => void;
+}) {
+  const [tarih, setTarih] = useState(giris.tarih?.split('T')[0] ?? '');
+  const [tartimKg, setTartimKg] = useState(String(giris.tartimMiktariKg));
+  const [satisKg, setSatisKg] = useState(String(giris.satisMiktariKg));
+  const [aciklama, setAciklama] = useState(giris.aciklama ?? '');
+  const [notlar, setNotlar] = useState(giris.notlar ?? '');
+  const [kaydediliyor, setKaydediliyor] = useState(false);
+  const [hata, setHata] = useState('');
+
+  async function kaydet() {
+    if (!tartimKg || Number(tartimKg) <= 0) { setHata('Tartım miktarı 0\'dan büyük olmalı'); return; }
+    setKaydediliyor(true); setHata('');
+    try {
+      const yanit = await fetch(`/api/hasat-girisleri/${giris.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tarih,
+          tartimMiktariKg: Number(tartimKg),
+          satisMiktariKg: Number(satisKg) || Number(tartimKg),
+          aciklama: aciklama.trim() || null,
+          notlar: notlar.trim() || null,
+        }),
+      });
+      if (!yanit.ok) { const v = await yanit.json(); setHata(v.hata ?? 'Güncelleme başarısız'); return; }
+      onKaydet();
+    } catch { setHata('Bağlantı hatası'); } finally { setKaydediliyor(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl space-y-3">
+        <h3 className="text-sm font-semibold text-gray-800">Hasat Girişi Düzenle</h3>
+        <p className="text-xs text-gray-400">Tarih, tartım miktarı, açıklama ve notlar güncellenebilir.</p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="block text-xs text-gray-600 mb-1">Tarih</label>
+            <input type="date" value={tarih} onChange={e => setTarih(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-500" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Tartım (kg)</label>
+            <input type="number" value={tartimKg} onChange={e => setTartimKg(e.target.value)} min={0.1} step={0.1}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-500" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Satış (kg)</label>
+            <input type="number" value={satisKg} onChange={e => setSatisKg(e.target.value)} min={0} step={0.1}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-500" />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">Açıklama</label>
+          <input type="text" value={aciklama} onChange={e => setAciklama(e.target.value)} placeholder="Kısa açıklama..."
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-500" />
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">Notlar</label>
+          <textarea value={notlar} onChange={e => setNotlar(e.target.value)} rows={2} placeholder="Ek notlar..."
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-500" />
+        </div>
+
+        {hata && <p className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">{hata}</p>}
+
+        <div className="flex gap-2 pt-1">
+          <button onClick={onKapat} className="flex-1 rounded-lg border border-gray-300 py-2 text-sm text-gray-600 hover:bg-gray-50">İptal</button>
+          <button onClick={kaydet} disabled={kaydediliyor}
+            className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+            {kaydediliyor ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

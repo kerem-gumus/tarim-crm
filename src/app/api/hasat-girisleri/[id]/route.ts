@@ -4,6 +4,55 @@ import { logKaydet } from '@/lib/aktiviteLog';
 import { auditGuncelle } from '@/lib/auditKullanici';
 import { kontenjanZinciriGuncelle } from '@/lib/kontenjanZinciri';
 
+// PUT — temel alanları güncelle (tarih, kg, açıklama, notlar)
+export async function PUT(istek: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const { tarih, tartimMiktariKg, satisMiktariKg, aciklama, notlar } = await istek.json();
+
+    const eskiGiris = await prisma.hasatGirisi.findUnique({ where: { id } });
+    if (!eskiGiris) return NextResponse.json({ hata: 'Hasat girişi bulunamadı' }, { status: 404 });
+
+    const audit = await auditGuncelle();
+
+    // Tartım değişmişse sürgün toplamını fark kadar güncelle (Senaryo2'de atlıyoruz)
+    const eskiKg = Number(eskiGiris.tartimMiktariKg);
+    const yeniKg = tartimMiktariKg !== undefined ? Number(tartimMiktariKg) : eskiKg;
+    const kgFarki = yeniKg - eskiKg;
+
+    const guncel = await prisma.hasatGirisi.update({
+      where: { id },
+      data: {
+        ...(tarih ? { tarih: new Date(tarih) } : {}),
+        ...(tartimMiktariKg !== undefined ? { tartimMiktariKg: yeniKg } : {}),
+        ...(satisMiktariKg !== undefined ? { satisMiktariKg: Number(satisMiktariKg) } : {}),
+        ...(aciklama !== undefined ? { aciklama: aciklama?.trim() || null } : {}),
+        ...(notlar !== undefined ? { notlar: notlar?.trim() || null } : {}),
+        ...audit,
+      },
+      include: { tarla: { include: { ciftci: true } }, isciEkip: true, musteri: true },
+    });
+
+    // Sürgün toplamını güncelle (Senaryo 2 girişleri hariç — onlar zaten sayılmıyordu)
+    if (kgFarki !== 0 && eskiGiris.satisBenimMi !== false) {
+      await prisma.surgun.update({
+        where: { id: eskiGiris.surgunId },
+        data: { toplamHasatKg: { increment: kgFarki } },
+      });
+    }
+
+    logKaydet({
+      islemTipi: 'guncelleme', modul: 'hasat', tablo: 'hasat_girisleri',
+      kayitId: id, yeniDeger: { tartimMiktariKg: yeniKg, satisMiktariKg },
+    }).catch(console.error);
+
+    return NextResponse.json(guncel);
+  } catch (err) {
+    console.error('[hasat PUT]', err);
+    return NextResponse.json({ hata: 'Hasat girişi güncellenemedi' }, { status: 500 });
+  }
+}
+
 export async function DELETE(_istek: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
