@@ -56,25 +56,7 @@ export async function POST(
       }
 
       const yeniBakiye = Number(hesap.bakiye) - Number(gercekOdeme); // bankadan düşülen gerçek tutar
-      const bakiyeYetersiz = yeniBakiye < 0;
-
-      if (bakiyeYetersiz && !hesap.kmhLimiti && !kmhOnayi) {
-        return NextResponse.json({
-          hata: 'yetersiz_bakiye',
-          mesaj: `Hesapta yeterli bakiye yok. Mevcut bakiye: ${Number(hesap.bakiye).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺`,
-          bakiye: Number(hesap.bakiye),
-          kmhLimiti: false,
-        }, { status: 409 });
-      }
-
-      if (bakiyeYetersiz && !kmhOnayi) {
-        return NextResponse.json({
-          hata: 'yetersiz_bakiye',
-          mesaj: 'Hesap bakiyesi yetersiz. KMH devreye girecek, faiz işleyecektir.',
-          bakiye: Number(hesap.bakiye),
-          kmhLimiti: true,
-        }, { status: 409 });
-      }
+      // Bakiye sınırı yok — kullanıcı istediği kadar eksiye inebilir
 
       // Fark hesabını bul (sadece tamOdeme ve fark varsa gerekli)
       const hasFark = tamOdeme && Math.abs(farkTutar) > 0.005;
@@ -114,7 +96,7 @@ export async function POST(
           where: { id: bankaHesabiId },
           data: {
             bakiye: { decrement: gercekOdeme },
-            ...(bakiyeYetersiz ? { alarmDurumu: true } : {}),
+            ...(yeniBakiye < 0 ? { alarmDurumu: true } : {}),
           },
         });
 

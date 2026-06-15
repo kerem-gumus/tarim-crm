@@ -47,31 +47,7 @@ export async function POST(istek: NextRequest) {
       if (!hesap) {
         return NextResponse.json({ hata: 'Banka hesabı bulunamadı' }, { status: 404 })
       }
-      const bakiye = Number(hesap.bakiye)
-      const kmhLimiti = hesap.kmhLimiti ? Number(hesap.kmhLimiti) : 0
-      const kullanilabilir = bakiye + kmhLimiti
-      if (bakiye < gercekSayi && !kmhOnayi) {
-        return NextResponse.json(
-          {
-            hata: 'yetersiz_bakiye',
-            mesaj: `Hesap bakiyesi (₺${bakiye.toFixed(2)}) toplam ödemeden (₺${gercekSayi.toFixed(2)}) düşük`,
-            bakiye,
-            kmhLimiti: hesap.kmhLimiti,
-          },
-          { status: 409 }
-        )
-      }
-      if (kullanilabilir < gercekSayi) {
-        return NextResponse.json(
-          {
-            hata: 'kmh_asimi',
-            mesaj: `KMH dahil kullanılabilir bakiye (₺${kullanilabilir.toFixed(2)}) yetersiz`,
-            bakiye,
-            kmhLimiti: hesap.kmhLimiti,
-          },
-          { status: 409 }
-        )
-      }
+      // Bakiye sınırı yok — kullanıcı istediği kadar eksiye inebilir
     }
 
     // Transaction: tüm kayıtları öde
