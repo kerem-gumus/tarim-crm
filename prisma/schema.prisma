@@ -527,6 +527,7 @@ model BankaHesabi {
   gelirOdemeleri  GelirOdemesi[]
   ekipmanGiderler EkipmanGider[]  @relation("EkipmanGiderBanka")
   ekipmanGelirleri EkipmanGelir[] @relation("EkipmanGelirBanka")
+  cariHareketler  CariHareket[]
 
   @@map("banka_hesaplari")
 }
@@ -1149,6 +1150,7 @@ enum CariYon {
 enum CariIslemTipi {
   satis_kaynakli  // hasat girişinden doğan cari hareket
   odesme          // karşı tarafa çay satarak kapatma
+  para_tahsilat   // para olarak tahsilat (banka üzerinden)
 }
 
 model CuzdanKullanicisi {
@@ -1171,11 +1173,14 @@ model CuzdanKullanicisi {
 model CariHareket {
   id                  String            @id @default(cuid())
   cuzdanKullaniciId   String            @map("cuzdan_kullanici_id")
-  hasatGirisiId       String?           @map("hasat_girisi_id")   // hangi hasat girişinden doğdu
-  hasatDonemiId       String?           @map("hasat_donemi_id")   // hangi dönemde
-  yon                 CariYon                                     // bana_borclu | ben_borcluyum
-  islemTipi           CariIslemTipi     @map("islem_tipi")        // satis_kaynakli | odesme
-  miktarKg            Decimal           @map("miktar_kg") @db.Decimal(10, 2)
+  hasatGirisiId       String?           @map("hasat_girisi_id")
+  hasatDonemiId       String?           @map("hasat_donemi_id")
+  yon                 CariYon
+  islemTipi           CariIslemTipi     @map("islem_tipi")
+  miktarKg            Decimal           @default(0) @map("miktar_kg") @db.Decimal(10, 2)
+  tutarTl             Decimal?          @map("tutar_tl") @db.Decimal(14, 2)   // para tahsilatında TL tutarı
+  bankaHesabiId       String?           @map("banka_hesabi_id")               // para yatırılan banka
+  vadeTarihi          DateTime?         @map("vade_tarihi") @db.Date          // ödeme vade tarihi
   komisyonTl          Decimal?          @map("komisyon_tl") @db.Decimal(10, 2)
   aciklama            String?
   tarih               DateTime          @default(now())
@@ -1184,6 +1189,7 @@ model CariHareket {
 
   cuzdanKullanici   CuzdanKullanicisi   @relation(fields: [cuzdanKullaniciId], references: [id])
   hasatGirisi       HasatGirisi?        @relation(fields: [hasatGirisiId], references: [id])
+  bankaHesabi       BankaHesabi?        @relation(fields: [bankaHesabiId], references: [id])
 
   @@map("cari_hareketler")
 }

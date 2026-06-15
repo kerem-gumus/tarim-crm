@@ -188,6 +188,30 @@ export async function GET() {
     })
     const fazlaSatisKg = fazlaSatisHareketler.reduce((s, h) => s + Number(h.miktarKg), 0)
 
+    // Vadesi yaklaşan cari hareketler (7 gün içinde)
+    const yediGunSonra = new Date()
+    yediGunSonra.setDate(yediGunSonra.getDate() + 7)
+    const vadesiYaklaşanCari = await prisma.cariHareket.findMany({
+      where: {
+        aktif: true,
+        vadeTarihi: { lte: yediGunSonra, not: null },
+      },
+      include: { cuzdanKullanici: { select: { id: true, ad: true } } },
+      orderBy: { vadeTarihi: 'asc' },
+      take: 10,
+    })
+
+    const vadesiYaklasan = vadesiYaklaşanCari.map((h) => ({
+      id: h.id,
+      kullaniciAd: h.cuzdanKullanici.ad,
+      cuzdanKullaniciId: h.cuzdanKullaniciId,
+      miktarKg: Number(h.miktarKg),
+      tutarTl: h.tutarTl ? Number(h.tutarTl) : null,
+      yon: h.yon,
+      vadeTarihi: h.vadeTarihi,
+      aciklama: h.aciklama,
+    }))
+
     return NextResponse.json({
       aktifSurgunSayisi,
       bugunHasatKg,
@@ -204,6 +228,8 @@ export async function GET() {
       cariBorcKg: toplamBorcKg,
       netCariKg,
       fazlaSatisKg,
+      // Vadesi yaklaşan cari
+      vadesiYaklasan,
     })
   } catch (hata) {
     console.error('Dashboard özet hatası:', hata)

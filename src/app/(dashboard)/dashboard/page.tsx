@@ -6,6 +6,12 @@ import Link from 'next/link'
 
 interface GunlukHasat { tarih: string; toplamKg: number }
 interface KritikStok { id: string; ad: string; mevcutStok: number; minimumStok: number; birim: string }
+interface VadesiYaklasan {
+  id: string; kullaniciAd: string; cuzdanKullaniciId: string
+  miktarKg: number; tutarTl: number | null; yon: string
+  vadeTarihi: string; aciklama: string | null
+}
+
 interface DashboardOzet {
   aktifSurgunSayisi: number; bugunHasatKg: number; bugunHasatGiris: number
   toplamHasatKgBuSezon: number; netKar: number; sonOtuzGunHasat: GunlukHasat[]
@@ -13,6 +19,8 @@ interface DashboardOzet {
   odenmemisAlacak: number; odenmemisBorc: number
   // Cari hesap (kg)
   cariAlacakKg: number; cariBorcKg: number; netCariKg: number; fazlaSatisKg: number
+  // Vadesi yaklaşan cari hareketler
+  vadesiYaklasan: VadesiYaklasan[]
 }
 
 function paraFormat(t: number) {
@@ -213,6 +221,46 @@ export default function DashboardSayfasi() {
                     </span>
                   </span>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Vadesi Yaklaşan Cari Hareketler */}
+          {veri.vadesiYaklasan && veri.vadesiYaklasan.length > 0 && (
+            <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-4 md:p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm md:text-base font-semibold text-red-800 flex items-center gap-2">
+                  <span>⚠️</span> Vadesi Yaklaşan Cari
+                </h2>
+                <Link href="/cari-hesap" className="text-xs text-red-600 font-medium hover:underline">Tümü →</Link>
+              </div>
+              <div className="space-y-2">
+                {veri.vadesiYaklasan.map((v) => {
+                  const vade = new Date(v.vadeTarihi)
+                  const bugun = new Date()
+                  const gunFark = Math.ceil((vade.getTime() - bugun.getTime()) / (1000 * 60 * 60 * 24))
+                  const gecti = gunFark < 0
+                  return (
+                    <Link
+                      key={v.id}
+                      href={`/cari-hesap?id=${v.cuzdanKullaniciId}`}
+                      className={`block rounded-xl px-3 py-2 text-sm ${gecti ? 'bg-red-50 border border-red-200' : 'bg-orange-50 border border-orange-200'}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-gray-800">{v.kullaniciAd}</span>
+                        <span className={`text-xs font-medium ${gecti ? 'text-red-700' : 'text-orange-700'}`}>
+                          {gecti ? `${Math.abs(gunFark)} gün geçti` : gunFark === 0 ? 'Bugün' : `${gunFark} gün kaldı`}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="text-xs text-gray-500">{v.aciklama ?? (v.yon === 'bana_borclu' ? 'Bana borçlu' : 'Ben borçluyum')}</span>
+                        <span className="text-xs font-semibold text-gray-700">
+                          {v.tutarTl ? `₺${v.tutarTl.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : `${v.miktarKg} kg`}
+                        </span>
+                      </div>
+                    </Link>
+                  )
+                })}
               </div>
             </div>
           )}

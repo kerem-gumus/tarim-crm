@@ -78,6 +78,8 @@ export async function GET(istek: Request) {
         islemTipi: h.islemTipi,
         yon: h.yon,
         miktarKg: kg,
+        tutarTl: h.tutarTl ? Number(h.tutarTl) : null,
+        vadeTarihi: h.vadeTarihi,
         kumBakiyeKg: kumBakiye,
         aciklama: h.aciklama,
         hasatGirisi: h.hasatGirisi,

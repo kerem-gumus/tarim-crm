@@ -7,9 +7,11 @@ import { Suspense } from 'react';
 interface CariHareketSatir {
   id: string;
   tarih: string;
-  islemTipi: 'satis_kaynakli' | 'odesme';
+  islemTipi: 'satis_kaynakli' | 'odesme' | 'para_tahsilat';
   yon: 'bana_borclu' | 'ben_borcluyum';
   miktarKg: number;
+  tutarTl: number | null;
+  vadeTarihi: string | null;
   kumBakiyeKg: number;
   aciklama: string | null;
   hasatGirisi: { id: string; tarih: string; satisMiktariKg: number } | null;
@@ -26,6 +28,122 @@ function kgFormat(kg: number) {
   return Math.abs(kg).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 1 }) + ' kg';
 }
 
+// ─── Para Hareketi Formu ─────────────────────────────────────────────────────
+function ParaHareketiFormu({
+  cuzdanKullaniciId,
+  ad,
+  onKaydet,
+  onKapat,
+}: {
+  cuzdanKullaniciId: string;
+  ad: string;
+  onKaydet: () => void;
+  onKapat: () => void;
+}) {
+  const [yon, setYon] = useState<'bana_borclu' | 'ben_borcluyum'>('bana_borclu');
+  const [tutarTl, setTutarTl] = useState('');
+  const [aciklama, setAciklama] = useState('');
+  const [tarih, setTarih] = useState(new Date().toISOString().split('T')[0]);
+  const [vadeTarihi, setVadeTarihi] = useState('');
+  const [bankaHesaplari, setBankaHesaplari] = useState<{ id: string; hesapAdi: string; bakiye: number }[]>([]);
+  const [bankaHesabiId, setBankaHesabiId] = useState('');
+  const [kaydediliyor, setKaydediliyor] = useState(false);
+  const [hata, setHata] = useState('');
+
+  useEffect(() => {
+    fetch('/api/banka-hesaplari')
+      .then(r => r.json())
+      .then(v => Array.isArray(v) ? setBankaHesaplari(v.filter((h: { tur: string; aktif: boolean }) => h.tur !== 'fark_hesabi' && h.aktif !== false)) : [])
+      .catch(() => {});
+  }, []);
+
+  async function kaydet() {
+    if (!tutarTl || Number(tutarTl) <= 0) { setHata('Geçerli tutar giriniz'); return; }
+    setKaydediliyor(true); setHata('');
+    try {
+      const yanit = await fetch('/api/cari-hesap/para-hareketi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cuzdanKullaniciId, yon, tutarTl: Number(tutarTl), aciklama, tarih, vadeTarihi: vadeTarihi || null, bankaHesabiId: bankaHesabiId || null }),
+      });
+      if (!yanit.ok) { const v = await yanit.json(); setHata(v.hata ?? 'Hata'); return; }
+      onKaydet();
+    } catch { setHata('Bağlantı hatası'); } finally { setKaydediliyor(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl space-y-3">
+        <h3 className="text-sm font-semibold text-gray-800">Para Hareketi — {ad}</h3>
+        <p className="text-xs text-gray-500">Çaya karşılık değil, para olarak gerçekleşen cari hareket (örn. benim adıma sattı, parasını yatırdı).</p>
+
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">Yön</label>
+          <div className="flex gap-3">
+            <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+              <input type="radio" checked={yon === 'bana_borclu'} onChange={() => setYon('bana_borclu')} className="text-blue-600" />
+              <span>{ad} bana borçlu <span className="text-gray-400">(bana para yatırdı)</span></span>
+            </label>
+          </div>
+          <div className="flex gap-3 mt-1">
+            <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+              <input type="radio" checked={yon === 'ben_borcluyum'} onChange={() => setYon('ben_borcluyum')} className="text-blue-600" />
+              <span>Ben borçluyum <span className="text-gray-400">(ona para gönderdim)</span></span>
+            </label>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Tutar (₺) *</label>
+            <input type="number" value={tutarTl} onChange={e => setTutarTl(e.target.value)} min={0.01} step={0.01} placeholder="0.00"
+              className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Tarih</label>
+            <input type="date" value={tarih} onChange={e => setTarih(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">Vade Tarihi <span className="text-gray-400">(opsiyonel — yaklaşınca uyarı gelir)</span></label>
+          <input type="date" value={vadeTarihi} onChange={e => setVadeTarihi(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">Banka Hesabı <span className="text-gray-400">(para yatırıldıysa)</span></label>
+          <select value={bankaHesabiId} onChange={e => setBankaHesabiId(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <option value="">— Banka seçin —</option>
+            {bankaHesaplari.map(h => (
+              <option key={h.id} value={h.id}>{h.hesapAdi} (₺{Number(h.bakiye).toLocaleString('tr-TR', { minimumFractionDigits: 2 })})</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">Açıklama</label>
+          <input type="text" value={aciklama} onChange={e => setAciklama(e.target.value)} placeholder="Satış, ödeme notu..."
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        </div>
+
+        {hata && <p className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">{hata}</p>}
+
+        <div className="flex gap-2 pt-1">
+          <button onClick={onKapat} className="flex-1 rounded-lg border border-gray-300 py-2 text-xs text-gray-600 hover:bg-gray-50">İptal</button>
+          <button onClick={kaydet} disabled={kaydediliyor}
+            className="flex-1 rounded-lg bg-blue-600 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+            {kaydediliyor ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Çay Ödeşme Formu ────────────────────────────────────────────────────────
 function OdesmeFormu({
   cuzdanKullaniciId,
   ad,
@@ -119,6 +237,7 @@ function CariHesapIc() {
   const [ozet, setOzet] = useState<{ kullanicilar: { cuzdanKullaniciId: string; ad: string; netKg: number }[] } | null>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [odesmeAcik, setOdesmeAcik] = useState(false);
+  const [paraHareketiAcik, setParaHareketiAcik] = useState(false);
 
   const getir = useCallback(async () => {
     setYukleniyor(true);
@@ -153,12 +272,18 @@ function CariHesapIc() {
               {ekstre.ozet.aciklama}
             </p>
           </div>
-          {ekstre.netKg !== 0 && (
-            <button onClick={() => setOdesmeAcik(true)}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
-              + Ödeşme Kaydı
+          <div className="flex gap-2">
+            {ekstre.netKg !== 0 && (
+              <button onClick={() => setOdesmeAcik(true)}
+                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                + Çay Ödeşmesi
+              </button>
+            )}
+            <button onClick={() => setParaHareketiAcik(true)}
+              className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
+              ₺ Para Hareketi
             </button>
-          )}
+          </div>
         </div>
 
         <div className="px-4 py-4">
@@ -184,9 +309,17 @@ function CariHesapIc() {
                         {new Date(h.tarih).toLocaleDateString('tr-TR')}
                       </td>
                       <td className="px-4 py-2.5">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${h.islemTipi === 'odesme' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {h.islemTipi === 'odesme' ? 'Ödeşme' : 'Satış'}
-                        </span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                            h.islemTipi === 'odesme' ? 'bg-blue-100 text-blue-700' :
+                            h.islemTipi === 'para_tahsilat' ? 'bg-green-100 text-green-700' :
+                            'bg-amber-100 text-amber-700'}`}>
+                            {h.islemTipi === 'odesme' ? 'Çay Ödeşme' : h.islemTipi === 'para_tahsilat' ? '₺ Para' : 'Satış'}
+                          </span>
+                          {h.vadeTarihi && (
+                            <span className="text-xs text-orange-600">Vade: {new Date(h.vadeTarihi).toLocaleDateString('tr-TR')}</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-2.5">
                         <span className={`text-xs font-medium ${h.yon === 'bana_borclu' ? 'text-green-700' : 'text-red-600'}`}>
@@ -194,7 +327,9 @@ function CariHesapIc() {
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-right font-semibold">
-                        {kgFormat(h.miktarKg)}
+                        {h.islemTipi === 'para_tahsilat' && h.tutarTl
+                          ? <span className="text-green-700">₺{h.tutarTl.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+                          : kgFormat(h.miktarKg)}
                       </td>
                       <td className={`px-4 py-2.5 text-right font-semibold ${h.kumBakiyeKg > 0 ? 'text-green-700' : h.kumBakiyeKg < 0 ? 'text-red-600' : 'text-gray-500'}`}>
                         {h.kumBakiyeKg > 0 ? '+' : ''}{kgFormat(h.kumBakiyeKg)}
@@ -242,6 +377,14 @@ function CariHesapIc() {
             netKg={ekstre.netKg}
             onKaydet={() => { setOdesmeAcik(false); getir(); }}
             onKapat={() => setOdesmeAcik(false)}
+          />
+        )}
+        {paraHareketiAcik && (
+          <ParaHareketiFormu
+            cuzdanKullaniciId={cuzdanId}
+            ad={ekstre.kullanici.ad}
+            onKaydet={() => { setParaHareketiAcik(false); getir(); }}
+            onKapat={() => setParaHareketiAcik(false)}
           />
         )}
       </div>
